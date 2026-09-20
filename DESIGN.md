@@ -148,9 +148,16 @@ Roughly three weekends. Each phase leaves something working on its own.
 
 ## 9. Open questions
 
-1. **Phase A or B** — needs the week of measurements (§5). Leaning B: a
-   second box is the only option where the cluster survives the mini
-   rebooting, and staging that dies with production is not staging.
+1. ~~Phase A or B~~ — **resolved 2026-09-20 in principle**: a new Mac mini
+   (M5 Pro, 48 GB) is planned as the editing workstation; it takes over
+   production + Ollama + the dev container (migration = the documented
+   `restore.sh --from-remote latest` on new hardware, old box kept as the
+   rollback until the Tailscale names move). The **current mini becomes the
+   staging box** for this project — 16 GB with nothing else on it, a k3s VM
+   gets ~12 GB. §5's memory table is then comfortably met; rewrite it when
+   the hardware lands. A **NAS** is planned later: media library, on-site
+   backup copy for both apps (Drive stays off-site), and the restore source
+   for staging (question 3).
 2. **Does the Tailscale operator's Ingress strip path prefixes** the way
    `tailscale serve` did? Verify with the MCP in phase 2 before assuming
    either way (the MCP has `MCP_PATH` for exactly this).
