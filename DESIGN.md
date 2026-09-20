@@ -142,9 +142,32 @@ homelab-gitops/
 | 4 — Lecture Notes (2 days) | chart with Postgres + MinIO + restore, alembic initContainer, Whisper smoke test (one uploaded clip) | a recorded clip transcribes; History shows the restored lectures |
 | 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human |
 | 6 — write-up (½ day) | README with the architecture diagram, `docs/OPERATIONS.md`, a restore-drill doc that replaces today's by-hand candidate test; LinkedIn About gets a fourth bullet | — |
-| later | prod cut-over per app; a second node; Prometheus/Grafana (the apps expose enough for it) | only if wanted |
+| 7–12 | see §8a: Uptime Kuma, Prometheus/Grafana/Loki, restore-drill CronJob, self-hosted runner, second Ollama, registry cache | each on its own |
+| later | prod cut-over per app; a second node | only if wanted |
 
 Roughly three weekends. Each phase leaves something working on its own.
+
+## 8a. After the cluster works — what else belongs on it
+
+A k3s VM with three staging apps idles at ~4 GB and near-zero CPU. These
+earn their place because each is both useful day to day and a component
+every real cluster has. All deployed the same way — Argo `Application`s
+under `apps/platform/` — in this order:
+
+| Phase | What | Why | Cost |
+|---|---|---|---|
+| 7 — Uptime Kuma (1 day) | self-hosted uptime checks + status page for both public URLs, `/mcp/health`, and backup age; alerts to email/phone | replaces the free third-party pinger with something you own and can link from the READMEs | ~0.1 GB |
+| 8 — Observability (a weekend) | **Prometheus + Grafana + Loki**: the cluster, the staging apps, and — over Tailscale — the *production* stacks on the new mini. FastAPI gets `/metrics` (one library). One dashboard: request rates, scraper timings, Whisper lag, Ollama call durations, backup age. Loki makes "why did the scraper fail at 06:40" a query | today there is no metrics or log search at all; this is the thing listed next to Kubernetes in every job posting | ~1.5 GB |
+| 9 — Restore drill as a `CronJob` (1 day) | every Sunday: wipe staging's databases, restore from last night's bundles, run the smoke checks, post the result to Uptime Kuma / email | the monthly runbook item done automatically, forever; a backup that is restored weekly is a backup | — |
+| 10 — Self-hosted CI runner (a weekend) | GitHub Actions runner pods via the Actions Runner Controller; image builds happen here and push to GHCR; the "build candidate → deploy to staging → drill" pipeline lives on it | faster builds, no GitHub minutes, and ARC is a standard enterprise pattern | ~1 GB when busy |
+| 11 — Second Ollama (½ day) | native Ollama on the old mini as the *slow* model server: staging points at it, and overnight batch jobs (the daily brief) can use it so the new mini's GPU stays free for editing and lectures | the old mini's GPU is still a real GPU | ~5 GB while a model is loaded |
+| 12 — Registry pull-through cache (½ day) | `registry:2` mirror so staging pulls do not hit GHCR/Docker Hub every time | a component every real cluster has; makes rebuilds fast and offline-safe | ~0.2 GB |
+
+Skipped on purpose: Pi-hole/AdGuard (fine, unrelated to the story), Home
+Assistant (a hobby of its own), Nextcloud (the NAS does it better later).
+
+With phases 7–10 the old mini runs at roughly 8 GB and does the monitoring,
+testing and building for everything — the box working, not idling.
 
 ## 9. Open questions
 
