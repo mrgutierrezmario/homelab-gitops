@@ -102,7 +102,7 @@ over three things:
 - the a7CR library (edit from the local NVMe, archive to the NAS over
   10 GbE);
 - the on-site backup tier: both apps' bundles rsync to a NAS share
-  instead of the external drive (one line in each `backup.sh`); Drive
+  instead of the old mini (one line in each `backup.sh`); Drive
   stays off-site;
 - the restore source for staging, so the cluster no longer depends on the
   new mini being up.
