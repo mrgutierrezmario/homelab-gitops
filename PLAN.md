@@ -8,7 +8,7 @@ Kubernetes project itself; this is the bigger picture around it.
 
 | Machine | Today | End state |
 |---|---|---|
-| **Mac mini (current, 16 GB)** | everything: production, Ollama, backups, dev container | staging cluster + on-site backup drive + warm standby |
+| **Mac mini (current, 16 GB)** | everything: production, Ollama, backups, dev container | staging cluster + on-site backup copy (on its own disk) + warm standby |
 | **Mac mini M5 Pro (new, 48 GB, 10 GbE)** | — | video editing + production + Ollama + dev container |
 | **NAS (later)** | — | footage library + on-site backup tier for everything + restore source for staging |
 | Google Drive (rclone, encrypted) | off-site backups | unchanged — the copy that survives the house |
@@ -37,13 +37,15 @@ the stacks move as a unit, and the scripts are how they move.
 
 ## 3. The steps, in order
 
-### Step 0 — now, before anything arrives (10 minutes)
+### Step 0 — after the migration (10 minutes)
 
-Plug a spare external drive into the current mini. Both `backup.sh`
-scripts get one added step: rsync the bundle to the drive *before* the
-Drive sync. Result: three copies of every backup (live disk, local drive,
-Google Drive) — the 3-2-1 shape that is missing today. The drive later
-moves to whichever machine hosts backups.
+Once production runs on the new mini, both `backup.sh` scripts get one
+added step: rsync the bundle to a folder on the **old mini** over Tailscale,
+before the Drive sync. Result: three copies of every backup on two machines
+plus off-site (new mini, old mini's own disk, Google Drive) — the 3-2-1
+shape that is missing today. No extra hardware: the old mini's internal
+disk is a separate disk from production's. An external drive is only
+needed if that disk is nearly full.
 
 ### Step 1 — the new mini arrives: set it up as a workstation
 
@@ -89,8 +91,8 @@ Now `DESIGN.md` applies. On the old mini: a Linux VM with ~12 GB running
 k3s + Argo CD + the Tailscale operator, and in it, *copies* of all three
 apps restored from the nightly bundles, on `…-staging` URLs. Every merge to
 `main` in any repo lands there automatically; production on the new mini
-moves only when a person edits a version number. The backup drive from
-step 0 stays plugged into this machine (or moves to the NAS later).
+moves only when a person edits a version number. The backup copies from
+step 0 live on this machine's disk (or move to the NAS later).
 
 ### Step 4 — the NAS, when the footage needs it
 
@@ -120,7 +122,7 @@ Nothing before step 4 needs the NAS to exist.
         │  └──────┬───────┘  └──────┬───────┘  └────────┘  │      │ staging copies│
         │         └──────┬──────────┘                      │      │ of all three  │
         │           Ollama (GPU)      dev container         │      │ (…-staging)   │
-        │                 nightly backup.sh ───────────────────┬──►│ backup drive  │
+        │                 nightly backup.sh ───────────────────┬──►│ backup copies │
         └───────────────────────────────────────────────────┘  │  └──────────────┘
                                                                  └──► Google Drive (off-site)
                                      later: NAS = library + backup tier + staging's restore source
@@ -147,7 +149,7 @@ Nothing before step 4 needs the NAS to exist.
 |---|---|
 | Mac mini M5 Pro, 48 GB, 10 GbE | the editing purchase — the server role rides along for free |
 | External NVMe for footage | ~$150–250 |
-| Spare external drive for backups (step 0) | ~$60, or one you already own |
+| On-site backup copy (step 0) | $0 — the old mini's disk |
 | Old mini, laptop | $0 (keep the mini; the laptop is too old — recycle) |
 | NAS + 3–4 × 12 TB CMR drives (step 4, later) | ~$1,600–2,000 at 2026 drive prices (~$400 per 12 TB new; recertified from the Seagate/WD outlets are 30–40% less) |
 | Cloud | $0 — nothing here needs it; if a job asks for EKS, deploy the same charts there for a week and tear it down |
