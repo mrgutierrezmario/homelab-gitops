@@ -149,7 +149,7 @@ Nothing before step 4 needs the NAS to exist.
 | External NVMe for footage | ~$150–250 |
 | Spare external drive for backups (step 0) | ~$60, or one you already own |
 | Old mini, laptop | $0 (keep the mini; the laptop is too old — recycle) |
-| NAS + 4 drives (step 4, later) | ~$900–1,300 |
+| NAS + 3–4 × 12 TB CMR drives (step 4, later) | ~$1,600–2,000 at 2026 drive prices (~$400 per 12 TB new; recertified from the Seagate/WD outlets are 30–40% less) |
 | Cloud | $0 — nothing here needs it; if a job asks for EKS, deploy the same charts there for a week and tear it down |
 
 ## 6. What could go wrong, and the answer
