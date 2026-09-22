@@ -20,6 +20,11 @@ metadata:
   name: {{ include "ln.name" . }}-cache
   labels:
     {{- include "ln.labels" . | nindent 4 }}
+  annotations:
+    # local-path binds on first use (WaitForFirstConsumer): the claim stays
+    # Pending — "Progressing" to Argo — until the app pod mounts it. Same
+    # wave as the Deployment, or the earlier waves never complete.
+    argocd.argoproj.io/sync-wave: "2"
 spec:
   accessModes: [ReadWriteOnce]
   resources:
