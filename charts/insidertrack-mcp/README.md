@@ -17,9 +17,15 @@ comes from the InsiderTrack instance at `insidertrackUrl`.
 `tailscale serve` strips its mount path, which is why production's MCP
 listens at `/`. A Kubernetes Ingress does not: the operator's proxy passes
 `/mcp/...` through unchanged, so here `MCP_PATH=/mcp` and health is at
-`/mcp/health`. If the first deploy shows otherwise (`/mcp/health` 404s
-while the pod is Ready), set `mountPath: /` and keep the Ingress path at
-`/mcp` by hand — and update this note.
+`/mcp/health`. Verified on the first deploy (2026-09-21): `/mcp/health`
+200, `/health` 404.
+
+## Gotcha: runAsNonRoot needs a number
+
+The image's `USER mcp` is a name. With `runAsNonRoot: true` alone the
+kubelet refuses to start it (`CreateContainerConfigError`: cannot verify a
+non-numeric user). The chart pins `runAsUser: 999`, the uid `useradd
+--system` gave `mcp`. If the Dockerfile ever changes the user, change both.
 
 ## Token rotation
 

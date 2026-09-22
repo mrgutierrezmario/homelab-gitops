@@ -23,4 +23,6 @@ Status: **phase 1 done 2026-09-21** — k3s + Argo CD + Sealed Secrets +
 Tailscale operator, all Synced/Healthy, Argo UI on the tailnet. Running on
 the current mini in a 6 GiB VM (DESIGN.md §5 "Phase A") ahead of the new
 machine; `docs/OPERATIONS.md` has the rebuild for when the old mini is
-dedicated. **Phase 2 in progress** — the MCP chart, `apps/staging/insidertrack-mcp.yaml`.
+dedicated. **Phase 2 done 2026-09-21** — the MCP runs in staging at
+`https://insidertrack-mcp-staging.tail3659a6.ts.net/mcp`, its image built by
+the app's own CI, its token sealed. Next: phase 3, InsiderTrack itself.

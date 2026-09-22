@@ -5,8 +5,9 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **phase 1 done** (2026-09-21) — cluster and platform up on the
-current mini (Phase A, 6 GiB VM); see `README.md` for where things stand.
+Status: **phase 2 done** (2026-09-21) — cluster and platform up on the
+current mini (Phase A, 6 GiB VM), the MCP serving from staging over Funnel;
+see `README.md` for where things stand.
 
 ## 1. Why, in one paragraph
 
@@ -58,7 +59,7 @@ namespace: insidertrack-staging
   postgres        StatefulSet, PVC 5 Gi, restore Job (pg_restore from bundle) — sync wave 0
   app             Deployment, 1 replica, probes on /health, env from Secret, PVC for backups dir — wave 1
   mcp             Deployment, 1 replica, INSIDERTRACK_URL=http://app:8003, tokens from Secret — wave 2
-  ingress         tailscale, host insidertrack-staging, paths / → app, /mcp → mcp (operator keeps the prefix? verify — the Funnel stripped it)
+  ingress         tailscale, host insidertrack-staging, paths / → app, /mcp → mcp (the operator keeps the prefix — Q2)
 
 namespace: lecture-notes-staging
   postgres        StatefulSet, PVC 2 Gi, restore Job — wave 0
@@ -184,9 +185,11 @@ testing and building for everything — the box working, not idling.
    the hardware lands. A **NAS** is planned later: media library, on-site
    backup copy for both apps (Drive stays off-site), and the restore source
    for staging (question 3).
-2. **Does the Tailscale operator's Ingress strip path prefixes** the way
-   `tailscale serve` did? Verify with the MCP in phase 2 before assuming
-   either way (the MCP has `MCP_PATH` for exactly this).
+2. ~~Does the Tailscale operator's Ingress strip path prefixes~~ —
+   **resolved 2026-09-21, no.** Verified with the MCP: `/mcp/health` reaches
+   the server as `/mcp/health` (so `MCP_PATH=/mcp`), and `/health` is a 404.
+   Ingress semantics, unlike `tailscale serve`. Charts route and mount the
+   same path.
 3. **Restore Job source** — pull the bundle from the off-site rclone remote
    (needs the rclone config and passphrase as a SealedSecret) or from the
    mini over Tailscale (simpler, but couples staging to the mini)? Start
