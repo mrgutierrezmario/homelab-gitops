@@ -86,12 +86,18 @@ flip.
 
 ### Step 3 — the old mini becomes the staging box
 
-Now `DESIGN.md` applies. On the old mini: a Linux VM with ~12 GB running
-k3s + Argo CD + the Tailscale operator, and in it, *copies* of all three
-apps restored from the nightly bundles, on `…-staging` URLs. Every merge to
-`main` in any repo lands there automatically; production on the new mini
-moves only when a person edits a version number. **This is the only reason
-to keep the old mini.** If project #4 is dropped, sell it.
+*Update 2026-09-21: the staging cluster already runs on this mini, in a
+6 GB VM next to production (DESIGN.md phases 1–4). Step 3 is therefore a
+resize, not a build: `limactl delete`, 12 GB in `bootstrap/lima.yaml`,
+`limactl start`, `bootstrap/argocd.sh` — `docs/OPERATIONS.md` "Rebuild on
+the dedicated mini". Ten minutes plus image pulls.*
+
+On the old mini: a Linux VM with ~12 GB running k3s + Argo CD + the
+Tailscale operator, and in it, *copies* of all three apps restored from
+the nightly bundles, on `…-staging` URLs. Every merge to `main` in any repo
+lands there automatically; production on the new mini moves only when a
+person edits a version number. **This is the only reason to keep the old
+mini.** If project #4 is dropped, sell it.
 
 ### Step 4 — the NAS, when the footage needs it
 
