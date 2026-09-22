@@ -1,0 +1,30 @@
+# App of apps. Everything under apps/ is an Argo CD Application; this one
+# watches that directory, so adding a file to apps/ is the whole deploy.
+# Applied once by bootstrap/argocd.sh. It lives here and not under apps/ so
+# it is the one thing Argo does not manage — the handle you pull to stop it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+    targetRevision: main
+    path: apps
+    directory:
+      recurse: true
+      # Values files live next to the Applications; they are not manifests.
+      exclude: "platform/values/*"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

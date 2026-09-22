@@ -1,0 +1,54 @@
+# Argo CD sized for a 6 GiB VM, reachable on the tailnet only.
+# Used twice: bootstrap/argocd.sh (helm template) and apps/platform/argocd.yaml.
+
+global:
+  domain: argocd.tail3659a6.ts.net
+
+configs:
+  params:
+    # TLS ends at the Tailscale operator; the pod speaks plain HTTP.
+    server.insecure: true
+  cm:
+    # How often git is polled (default 120s + up to 60s jitter). Public repo,
+    # no webhook — 3 min is fine.
+    timeout.reconciliation: 180s
+
+# Single admin user is enough for a one-person tailnet. Dex is an SSO
+# component; off saves ~100 MB.
+dex:
+  enabled: false
+notifications:
+  enabled: false
+# The root app is a plain directory, no ApplicationSet needed yet. The chart
+# cannot switch the controller off, so it is scaled to zero.
+applicationSet:
+  replicas: 0
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: tailscale
+    # A bare name: the operator makes it argocd.<tailnet>.ts.net with a real
+    # cert. No `tailscale.com/funnel` annotation — this stays private.
+    hostname: argocd
+    path: /
+    pathType: Prefix
+    tls: true
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }
+
+controller:
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+
+repoServer:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+redis:
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { memory: 128Mi }

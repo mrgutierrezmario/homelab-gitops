@@ -1,0 +1,55 @@
+# The staging VM. Run from the Mac, not from the dev container:
+#
+#   brew install lima kubectl helm kubeseal
+#   limactl start --name k3s bootstrap/lima.yaml
+#   limactl shell k3s -- kubectl get nodes        # inside the VM
+#   export KUBECONFIG=~/.lima/k3s/copied-from-guest/kubeconfig.yaml   # from the Mac
+#
+# Phase A sizing (DESIGN.md §5): 6 GiB while the mini still runs production.
+# Once the new mini takes production, `limactl delete k3s`, set memory to
+# 12GiB below, start again and rerun bootstrap/argocd.sh — the cluster is
+# rebuilt from this repo and restores its own data (DESIGN.md §3 "State").
+base: template://ubuntu-lts
+cpus: 4
+memory: 6GiB
+disk: 60GiB
+
+# Nothing from the Mac is mounted: the cluster's inputs are git and the
+# backup bundles, never the host's filesystem.
+mounts: []
+
+# k3s ships its own containerd.
+containerd:
+  system: false
+  user: false
+
+provision:
+  # Same install as bootstrap/k3s.sh (kept for a non-Lima box); change both.
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      command -v k3s >/dev/null && exit 0
+      curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=stable sh -s - \
+        --write-kubeconfig-mode 644 \
+        --tls-san host.docker.internal \
+        --disable traefik
+
+probes:
+  - script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 120s bash -c "until test -f /etc/rancher/k3s/k3s.yaml; do sleep 3; done"; then
+        echo >&2 "k3s did not come up; see /var/log/cloud-init-output.log in the VM"
+        exit 1
+      fi
+    hint: k3s is not running yet — `limactl shell k3s sudo journalctl -u k3s`
+
+copyToHost:
+  - guest: /etc/rancher/k3s/k3s.yaml
+    host: "{{.Dir}}/copied-from-guest/kubeconfig.yaml"
+    deleteOnStop: true
+
+portForwards:
+  - guestPort: 6443
+    hostPort: 6443

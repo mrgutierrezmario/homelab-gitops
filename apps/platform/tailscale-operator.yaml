@@ -1,0 +1,39 @@
+# Tailscale Kubernetes operator: Ingress class `tailscale`, MagicDNS names and
+# certs for everything on the cluster, Funnel where a manifest asks for it.
+# Needs Secret `operator-oauth` in namespace `tailscale` (secrets/README.md).
+# Waits for sealed-secrets (wave 0) so that secret can exist.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  sources:
+    - repoURL: https://pkgs.tailscale.com/helmcharts
+      chart: tailscale-operator
+      targetRevision: 1.102.4
+      helm:
+        releaseName: tailscale-operator
+        valuesObject:
+          operatorConfig:
+            # The operator's own node name on the tailnet.
+            hostname: k3s-operator
+            logging: info
+          # Left empty on purpose: the chart then expects the operator-oauth
+          # Secret instead of taking the client secret as a value.
+          oauth: {}
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: secrets/tailscale
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -99,8 +99,10 @@ answer and keeps the cluster running when the Mac reboots.
 ```
 homelab-gitops/
 ├── DESIGN.md
-├── bootstrap/              # one-time: k3s install script, argo install, root app
-│   ├── k3s.sh
+├── bootstrap/              # one-time: the VM, k3s, Argo CD, the root app
+│   ├── lima.yaml           # the VM (memory is the one number that changes per phase)
+│   ├── k3s.sh              # same install for a non-Lima box
+│   ├── argocd.sh           # helm template + apply, then the root app
 │   └── root-app.yaml       # app-of-apps pointing at apps/
 ├── apps/                   # Argo Applications, one per project × environment
 │   ├── staging/
@@ -108,6 +110,7 @@ homelab-gitops/
 │   │   ├── insidertrack-mcp.yaml
 │   │   └── lecture-notes.yaml
 │   └── platform/           # argocd, sealed-secrets, tailscale-operator, image-updater
+│       └── values/         # values files shared with bootstrap (argocd.yaml)
 ├── charts/
 │   ├── insidertrack/       # Chart.yaml, templates/, values.yaml, values-staging.yaml
 │   ├── insidertrack-mcp/
