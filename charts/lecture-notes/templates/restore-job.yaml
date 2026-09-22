@@ -95,7 +95,10 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
     argocd.argoproj.io/sync-options: Replace=true,Force=true
 spec:
-  backoffLimit: 2
+  # One attempt. A failed restore is a bug to read, not a flake to retry —
+  # and while a Job retries, the sync that created it blocks every commit
+  # that would fix it.
+  backoffLimit: 0
   # Fail rather than hang: a Running sync blocks every later commit.
   activeDeadlineSeconds: {{ ternary 3600 1200 .Values.restore.audio }}
   template:
