@@ -98,6 +98,12 @@ visibility.
 
 ## Follow-ups the cluster surfaced
 
+- **Lecture Notes: opening a lecture whose audio is gone breaks the page**
+  (seen in staging before the audio mirror was restored, 2026-09-21; the
+  server logged nothing, so it is the frontend). Production reaches the
+  same state once the 14-day retention has deleted a recording. Reproduce
+  in staging with `restore.audio: false`, capture the browser console,
+  fix in the app repo.
 - **rclone's shared Google Drive client_id is being retired during 2026**
   (rclone prints a NOTICE on every run). This hits production's nightly
   `backup.sh` on the Mac, not just the staging restore. Fix in the
@@ -124,6 +130,12 @@ kubectl -n lecture-notes-staging logs -f job/lecture-notes-restore -c restore-db
 The restore swaps the database under the running app (rename, not drop
 and reload), so the app needs no restart; it sees the new copy on its
 next query. A wiped cluster restores itself the same way on first sync.
+Lecture Notes also re-downloads and re-uploads the audio mirror (~3,000
+chunks, about five minutes) each run; a cache for that is a phase-9 item.
+
+A restore Job runs **once, no retries**: if it fails, read its log, fix,
+push. While a Job is running or retrying, the sync that created it is
+"Running" and later commits wait — that is why retries are off.
 
 If the Job fails: `describe job` shows which container; `fetch` failing
 is the rclone secret (token expired → re-seal per `secrets/README.md`) or

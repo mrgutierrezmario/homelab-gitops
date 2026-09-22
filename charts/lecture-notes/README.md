@@ -17,7 +17,7 @@ wave 2  Deployment  lecture-notes            init: alembic upgrade head; then uv
 |---|---|---|
 | `ingress.host` | `lecture-notes-staging` | `PUBLIC_URL` is derived from it |
 | `restore.rcloneRemote` | `lecture-backup:` | the crypt remote from `deploy/backup-setup.sh` |
-| `restore.audio` | `false` | also pull `remote:audio/` and upload it to the bucket (hundreds of MB; old lectures become playable) |
+| `restore.audio` | `true` | also pull `remote:audio/` and upload it to the bucket (~3,000 chunks, ~5 min). Without it, opening a restored lecture breaks the page — a frontend bug production can hit after retention (docs/OPERATIONS.md) |
 | `restore.scrubTables` | `drive_links`, `drive_files` | see below |
 | `app.ollamaBaseUrl` | `http://host.lima.internal:11434` | the Mac from inside the VM |
 | `app.registrationOpen` | `"false"` | a copy on a public URL takes no sign-ups |
@@ -41,7 +41,7 @@ remotes). `secrets/README.md` has the commands.
   encrypted with production's `SECRET_KEY` and unreadable with staging's
   anyway; deleting makes it explicit that staging can never write to a
   student's Drive.
-- **Audio**: only with `restore.audio: true`.
+- **Audio**: with `restore.audio: true` (staging: on).
 - **Mail**: unset. "Forgot password?" is hidden.
 
 ## Migrations

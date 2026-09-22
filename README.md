@@ -29,5 +29,8 @@ the app's own CI, its token sealed. **Phase 3 done 2026-09-21** —
 InsiderTrack in staging at `https://insidertrack-staging.tail3659a6.ts.net`
 (`/mcp` → the MCP), Postgres seeded by a restore Job from last night's
 off-site bundle: 19,984 trades, 284 members, 37,867 Form 4 rows on the first
-run. **Phase 4 in progress** — Lecture Notes with Postgres, MinIO and its
-restore Job.
+run. **Phase 4 done 2026-09-21** — Lecture Notes at
+`https://lecture-notes-staging.tail3659a6.ts.net`: 3 users, 201 lectures,
+2,872 transcript segments and 2,998 audio chunks restored; a live recording
+transcribed through Whisper on CPU. Next: phase 5, the GitOps loop (Image
+Updater follows `main`).
