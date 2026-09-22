@@ -10,7 +10,8 @@ One directory per consumer, matching the Argo Application that mounts it:
 secrets/
 ├── pub-cert.pem          # the controller's public key — lets kubeseal work without cluster access
 ├── tailscale/            # operator-oauth — read by apps/platform/tailscale-operator.yaml
-└── insidertrack-mcp/     # mcp-tokens — read by apps/staging/insidertrack-mcp.yaml
+├── insidertrack-mcp/     # mcp-tokens — read by apps/staging/insidertrack-mcp.yaml
+└── insidertrack/         # insidertrack-db, insidertrack-app, insidertrack-rclone — apps/staging/insidertrack.yaml
 ```
 
 ## Sealing a secret
@@ -55,6 +56,36 @@ Commit the output. Argo applies it, the controller unseals it into a real
 `Secret` in that namespace, and the consumer starts. The name and namespace
 are part of the encryption — a sealed secret cannot be moved to another
 namespace by editing the file.
+
+### InsiderTrack (phase 3)
+
+`insidertrack-db` and `insidertrack-app` were generated and sealed without
+anyone reading them; read one back from the cluster when needed:
+
+```sh
+kubectl -n insidertrack-staging get secret insidertrack-app -o jsonpath='{.data.ADMIN_PASSWORD}' | base64 -d; echo
+```
+
+`insidertrack-rclone` is the one only the Mac can produce — it holds the
+Google Drive token and the crypt passphrase `deploy/backup-setup.sh`
+created. Just the two remotes the restore needs, straight from rclone,
+never through a file that outlives the command:
+
+```sh
+{ rclone config show gdrive-stock-tracker; echo; rclone config show stock-tracker-backup; } \
+  | kubectl create secret generic insidertrack-rclone -n insidertrack-staging \
+      --from-file=rclone.conf=/dev/stdin --dry-run=client -o yaml \
+  | kubeseal --cert secrets/pub-cert.pem --format yaml \
+  > secrets/insidertrack/insidertrack-rclone.yaml
+```
+
+That token can write to the backup folder. The restore only ever reads
+(`rclone lsf`, `rclone copyto`), and Drive keeps 30 days of versions, so
+the blast radius of a staging bug is bounded — but it is production's
+backup credential living in the cluster; rotate it (`rclone config
+reconnect gdrive-stock-tracker:` on the Mac, re-seal) if the cluster is
+ever compromised. rclone will warn it cannot save a refreshed token to the
+read-only mount; harmless, the refresh token itself does not change.
 
 ## The Tailscale OAuth client (first secret, phase 1)
 

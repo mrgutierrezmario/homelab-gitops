@@ -49,7 +49,7 @@ night's backups makes that a `git push`.
 | Image updates | **Argo CD Image Updater** for staging (track `main` tags); tags pinned by hand in `values-prod.yaml` | Staging follows `main` automatically — that is the staging-for-Dependabot payoff; prod stays a deliberate edit |
 | Secrets | **Sealed Secrets** (Bitnami) committed to this repo | Simplest GitOps-native option; no external vault to run. The sealing key is backed up like any other secret |
 | State | `StatefulSet` + PVC for Postgres and MinIO via k3s's local-path provisioner; **restore job** on first start from the latest backup bundle | Production backups already exist; the cluster's data is always a restored copy. No PV backup of the cluster itself is needed while it is staging |
-| Ollama / Whisper | Staging **points at the mini's native Ollama** over Tailscale (`http://<mini-tailnet-ip>:11434`); Whisper runs in the pod on CPU | Do not run a second LLM server; Whisper in staging is for smoke tests, not real-time |
+| Ollama / Whisper | Staging **points at the Mac's native Ollama** via `host.lima.internal:11434` (the VM's host — the same Mac in Phase A and once the old mini is dedicated); Whisper runs in the pod on CPU | Do not run a second LLM server; Whisper in staging is for smoke tests, not real-time |
 | Scope of "prod cut-over" | **Out of scope for v1.** Decide after staging has run for a month | Compose in production is fine; moving it is a separate decision with its own risk |
 
 ## 4. What gets deployed (staging)
@@ -190,10 +190,12 @@ testing and building for everything — the box working, not idling.
    the server as `/mcp/health` (so `MCP_PATH=/mcp`), and `/health` is a 404.
    Ingress semantics, unlike `tailscale serve`. Charts route and mount the
    same path.
-3. **Restore Job source** — pull the bundle from the off-site rclone remote
-   (needs the rclone config and passphrase as a SealedSecret) or from the
-   mini over Tailscale (simpler, but couples staging to the mini)? Start
-   with the mini; move to the remote when Phase B lands.
+3. ~~Restore Job source~~ — **resolved 2026-09-21: the off-site rclone
+   remote.** It is the documented `restore.sh --from-remote latest` path,
+   it holds no matter which machine is production, and it is the only way
+   staging doubles as a drill of the copy that matters. The rclone config
+   is a SealedSecret; the Job reads only. The NAS (PLAN.md step 4) can
+   replace it later by changing one value.
 4. **GHCR for a private repo** (the MCP was private until today; all three
    are public now) — no cost issue.
 5. **Whether production ever moves.** Not a question for this doc.

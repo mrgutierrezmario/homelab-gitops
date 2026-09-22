@@ -1,0 +1,77 @@
+# Defaults true in every environment; values-<env>.yaml has the rest.
+# Shape follows deploy/compose.yml in the app repo: postgres + app, with the
+# MCP as a separate release (charts/insidertrack-mcp) routed under /mcp here.
+
+image:
+  repository: ghcr.io/mrgutierrezmario/insidertrack
+  tag: main
+  pullPolicy: Always
+
+# Public hostname (bare MagicDNS name; the operator appends the tailnet).
+# PUBLIC_DOMAIN for CORS is derived from it plus `tailnet`.
+ingress:
+  enabled: true
+  host: insidertrack
+  funnel: false
+  # Route /mcp to this Service in the same namespace (the MCP release).
+  # Empty = no /mcp route.
+  mcpService: insidertrack-mcp
+tailnet: tail3659a6.ts.net
+
+# Postgres, same image as production. User and database names are fixed
+# like compose.yml fixes them; only the password is a secret.
+postgres:
+  image: postgres:18-alpine
+  user: stockuser
+  database: stocktracker
+  storage: 5Gi
+  storageClassName: ""   # cluster default (local-path on k3s)
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+# Secrets are SealedSecrets under secrets/insidertrack/, never chart values.
+secrets:
+  db: insidertrack-db          # key DB_PASSWORD
+  app: insidertrack-app        # key ADMIN_PASSWORD
+  rclone: insidertrack-rclone  # key rclone.conf — the remotes deploy/backup-setup.sh created
+
+# Seed the database from the newest bundle deploy/backup.sh uploaded.
+restore:
+  enabled: true
+  rcloneRemote: "stock-tracker-backup:"
+  rcloneImage: rclone/rclone:1
+  # A copy must not act as production. These app_settings rows (API keys,
+  # mail credentials the admin saved in the UI) are removed after restore, and
+  # the AI provider is pinned to Ollama, so staging never spends a paid key
+  # or sends anyone an email.
+  scrubSettings:
+    - alpha_vantage_key
+    - anthropic_api_key
+    - gemini_api_key
+    - openai_api_key
+    - mail_username
+    - mail_password
+    - mail_from
+    - mail_reply_to
+    - mail_admin_to
+
+# Environment for the app (deploy/.env in production). Secrets come from
+# `secrets.*`; everything else is plain here.
+app:
+  ollamaBaseUrl: ""              # empty = no local model server
+  ollamaModel: llama3
+  aiProvider: ollama
+  aiBatchProvider: ollama
+  aiDailyCap: "150"
+  # The Ingress proxy's pod IP is not stable, and the app matches proxies by
+  # exact address, so X-Forwarded-For is not trusted here: every visitor
+  # shares one rate-limit bucket. Fine for staging (see README).
+  trustedProxies: ""
+  resources:
+    requests: { cpu: 100m, memory: 384Mi }
+    limits: { memory: 1Gi }
+  # Where the app's own nightly pg_dump lands (services/db_backup.py). A
+  # copy of a copy — an emptyDir is enough.
+  backupsSizeLimit: 2Gi
+  extraEnv: []

@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "it.name" . }}
+  labels:
+    {{- include "it.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  selector:
+    {{- include "it.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+  ports:
+    - name: http
+      port: 8003
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "it.name" . }}
+  labels:
+    {{- include "it.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+  annotations:
+    # After Postgres (0) and the restore (1): the app's init_db() would
+    # otherwise create an empty schema first.
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: 1
+  # The scheduler inside the app must not run twice.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "it.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        {{- include "it.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: app
+    spec:
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8003
+          env:
+            # Same names as deploy/compose.yml, so deploy/.env.example is
+            # the reference for all of them.
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.db }}
+                  key: DB_PASSWORD
+            - name: POSTGRES_HOST
+              value: {{ include "it.postgresName" . }}
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:$(DB_PASSWORD)@{{ include "it.postgresName" . }}:5432/{{ .Values.postgres.database }}"
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.secrets.app }}
+                  key: ADMIN_PASSWORD
+            - name: TRUSTED_PROXIES
+              value: {{ .Values.app.trustedProxies | quote }}
+            - name: COOKIE_SECURE
+              value: "true"
+            - name: PUBLIC_DOMAIN
+              value: {{ include "it.publicDomain" . | quote }}
+            - name: OLLAMA_BASE_URL
+              value: {{ .Values.app.ollamaBaseUrl | quote }}
+            - name: OLLAMA_MODEL
+              value: {{ .Values.app.ollamaModel | quote }}
+            - name: AI_PROVIDER
+              value: {{ .Values.app.aiProvider | quote }}
+            - name: AI_BATCH_PROVIDER
+              value: {{ .Values.app.aiBatchProvider | quote }}
+            - name: AI_DAILY_CAP
+              value: {{ .Values.app.aiDailyCap | quote }}
+            # Mail deliberately unset: a copy sends nobody anything.
+            - name: MAIL_USERNAME
+              value: ""
+            - name: BACKUP_DIR
+              value: /backups
+            {{- with .Values.app.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: backups
+              mountPath: /backups
+          # /health reports "degraded" (still 200) if the scheduler is down;
+          # the probes only care that the process answers.
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}
+      volumes:
+        - name: backups
+          emptyDir:
+            sizeLimit: {{ .Values.app.backupsSizeLimit }}

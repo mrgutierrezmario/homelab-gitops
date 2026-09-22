@@ -95,10 +95,27 @@ by a public repo's workflow comes out public (verified with the MCP,
 check github.com/mrgutierrezmario?tab=packages → Package settings →
 visibility.
 
-## Restore a namespace
+## Restore a namespace (re-seed staging from last night's backup)
 
-Phase 3+: delete the namespace's PVC and the restore Job reruns on next
-sync. Written up when the first chart with state lands.
+Each stateful chart has a restore Job that runs once per change to its
+spec. To run it again — a fresh copy, or after a failure — delete it and
+Argo's selfHeal brings it back:
+
+```sh
+kubectl -n insidertrack-staging delete job insidertrack-restore
+kubectl -n insidertrack-staging logs -f job/insidertrack-restore -c fetch    # rclone
+kubectl -n insidertrack-staging logs -f job/insidertrack-restore             # psql
+```
+
+The restore swaps the database under the running app (rename, not drop
+and reload), so the app needs no restart; it sees the new copy on its
+next query. A wiped cluster restores itself the same way on first sync.
+
+If the Job fails: `describe job` shows which container; `fetch` failing
+is the rclone secret (token expired → re-seal per `secrets/README.md`) or
+Drive; `restore` failing is the dump or the swap (its log says which
+step). A failed Job blocks the app's sync wave, on purpose — an app on an
+empty schema would look like a working staging.
 
 ## Rotate a secret
 

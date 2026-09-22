@@ -1,0 +1,9 @@
+apiVersion: v2
+name: insidertrack
+description: InsiderTrack — the app, its Postgres, and a restore Job that seeds the database from the newest off-site backup bundle
+type: application
+version: 0.1.0
+appVersion: "1.1.0"
+home: https://github.com/mrgutierrezmario/insidertrack
+sources:
+  - https://github.com/mrgutierrezmario/insidertrack

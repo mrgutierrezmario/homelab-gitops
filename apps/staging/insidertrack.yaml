@@ -1,0 +1,33 @@
+# Phase 3: InsiderTrack in staging — Postgres, the app, and a restore Job
+# that seeds the database from the newest off-site bundle. The MCP (its own
+# Application) is routed under /mcp on this host.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: insidertrack-staging
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: charts/insidertrack
+      helm:
+        releaseName: insidertrack
+        valueFiles:
+          - values-staging.yaml
+    # insidertrack-db, insidertrack-app, insidertrack-rclone — sealed.
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: secrets/insidertrack
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: insidertrack-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
