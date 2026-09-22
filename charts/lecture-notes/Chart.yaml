@@ -2,7 +2,7 @@ apiVersion: v2
 name: lecture-notes
 description: AI Lecture Notes — the app, Postgres, MinIO, and a restore Job that seeds both from the newest off-site backup
 type: application
-version: 0.1.1
+version: 0.1.2
 appVersion: "1.1.0"
 home: https://github.com/mrgutierrezmario/lecture-note-app
 sources:

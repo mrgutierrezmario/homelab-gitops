@@ -77,9 +77,10 @@ data:
   import-audio.sh: |
     #!/bin/sh
     # deploy/restore.sh does the same: the app's own module uploads the mirror.
+    # Stays in the image's WORKDIR (/app/ui_backend) so `-m storage…` resolves.
     set -eu
-    cd /work/audio 2>/dev/null || { echo "[restore] no audio to import"; exit 0; }
-    tar -cf - . | python -m storage.audio_backup import
+    [ -d /work/audio ] || { echo "[restore] no audio to import"; exit 0; }
+    tar -C /work/audio -cf - . | python -m storage.audio_backup import
     rm -rf /work/audio
     echo "[restore] audio done"
 ---
