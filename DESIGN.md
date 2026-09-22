@@ -77,23 +77,31 @@ Notes' cleanup) **runs in staging too** — against copies — because that is
 what a Dependabot bump most often breaks. Outbound email in staging goes to
 a null sink (`MAIL_USERNAME` unset) so nobody gets duplicate reports.
 
-## 5. Memory budget (to verify before phase 0)
+## 5. Memory budget
+
+Estimated before building (Traefik has since been disabled — the Tailscale
+operator is the ingress):
 
 | | GB |
 |---|---|
-| k3s control plane + Traefik + CoreDNS + metrics | ~1.0 |
+| k3s control plane + CoreDNS + metrics | ~0.8 |
 | Argo CD (server, repo-server, controller, redis) + Image Updater | ~0.8 |
-| Sealed Secrets + Tailscale operator | ~0.2 |
+| Sealed Secrets + Tailscale operator + one proxy pod per Ingress (3) | ~0.3 |
 | InsiderTrack staging (postgres 0.2, app 0.3, mcp 0.1) | ~0.6 |
 | Lecture Notes staging (postgres 0.1, minio 0.3, app 0.4 idle / 2.5 with Whisper) | ~0.8–2.9 |
-| **Total** | **~3.4 GB idle, ~5.5 GB when Whisper runs** |
+| **Total** | **~3.3 GB idle, ~5.4 GB when Whisper runs** |
 
-The mini has roughly 4 GB free with Ollama loaded. **Phase A fits only if
-Ollama is not loaded at the same time** — which is true most of the day but
-not during a lecture or the 08:30 brief. Decision point after measuring on
-the real machine: if headroom is under 2 GB at peak, go to Phase B (second
-box) before building anything. A used mini PC with 16–32 GB is the cleaner
-answer and keeps the cluster running when the Mac reboots.
+Running since 2026-09-21 in a **6 GiB** VM with all of the above, and a
+live recording transcribed. Real numbers to fill in: `kubectl top pods -A`
+and `limactl shell k3s -- free -m` during a recording. The pod limits in
+the charts (Lecture Notes app 3 Gi) are the ceiling; if the VM swaps
+during a lecture, that is the number to lower or the moment to move to the
+12 GiB rebuild.
+
+The mini has roughly 4 GB free with Ollama loaded, so **Phase A fits only
+while Ollama is not loaded at the same time** — true most of the day, not
+during a lecture or the 08:30 brief. This resolves itself when the new mini
+takes production and the VM is rebuilt at 12 GiB (`docs/OPERATIONS.md`).
 
 ## 6. Repository layout
 
@@ -137,19 +145,21 @@ homelab-gitops/
 
 ## 8. Plan
 
-| Phase | Deliverable | Done when |
-|---|---|---|
-| 0 — decide where (½ day) | measure real headroom on the mini for a week (`docker stats`, Activity Monitor at the 08:30 brief and during a lecture); pick Phase A or B | a number in this doc, and a machine |
-| 1 — cluster (1 day) | k3s up, Tailscale operator, Argo CD reachable at `argocd.<tailnet>`, Sealed Secrets, root app syncing an empty `apps/` | `argocd app list` shows the root app Healthy |
-| 2 — InsiderTrack MCP (½ day) | first chart — stateless, one Deployment, easiest win; points at production InsiderTrack read-only over Tailscale for now | staging MCP answers from claude.ai with its own token |
-| 3 — InsiderTrack (2 days) | chart with Postgres, restore Job from the nightly bundle, scrapers running against the copy, ingress with `/` and `/mcp` | the site at `insidertrack-staging` shows yesterday's data and this morning's scrape |
-| 4 — Lecture Notes (2 days) | chart with Postgres + MinIO + restore, alembic initContainer, Whisper smoke test (one uploaded clip) | a recorded clip transcribes; History shows the restored lectures |
-| 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human |
-| 6 — write-up (½ day) | README with the architecture diagram, `docs/OPERATIONS.md`, a restore-drill doc that replaces today's by-hand candidate test; LinkedIn About gets a fourth bullet | — |
-| 7–12 | see §8a: Uptime Kuma, Prometheus/Grafana/Loki, restore-drill CronJob, self-hosted runner, second Ollama, registry cache | each on its own |
-| later | prod cut-over per app; a second node | only if wanted |
+| Phase | Deliverable | Done when | Status |
+|---|---|---|---|
+| 0 — decide where (½ day) | measure real headroom on the mini for a week (`docker stats`, Activity Monitor at the 08:30 brief and during a lecture); pick Phase A or B | a number in this doc, and a machine | **skipped, deliberately** — Phase A on the current mini at 6 GiB, since the new mini is coming and the VM is rebuilt bigger then (§9 Q1) |
+| 1 — cluster (1 day) | k3s up, Tailscale operator, Argo CD reachable at `argocd.<tailnet>`, Sealed Secrets, root app syncing an empty `apps/` | `argocd app list` shows the root app Healthy | **done 2026-09-21** |
+| 2 — InsiderTrack MCP (½ day) | first chart — stateless, one Deployment, easiest win; points at production InsiderTrack read-only over Tailscale for now | staging MCP answers from claude.ai with its own token | **done 2026-09-21** — pointed at production's public URL for a day, then at the staging copy in phase 3 |
+| 3 — InsiderTrack (2 days) | chart with Postgres, restore Job from the nightly bundle, scrapers running against the copy, ingress with `/` and `/mcp` | the site at `insidertrack-staging` shows yesterday's data and this morning's scrape | **done 2026-09-21** — yesterday's data verified; the morning scrape is tomorrow's check |
+| 4 — Lecture Notes (2 days) | chart with Postgres + MinIO + restore, alembic initContainer, Whisper smoke test (one uploaded clip) | a recorded clip transcribes; History shows the restored lectures | **done 2026-09-21** — a live recording, not a clip |
+| 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human | half: all three CIs push to GHCR; Image Updater installed, not yet configured |
+| 6 — write-up (½ day) | README with the architecture diagram, `docs/OPERATIONS.md`, a restore-drill doc that replaces today's by-hand candidate test; LinkedIn About gets a fourth bullet | — | runbook exists and is kept current; diagram and drill doc pending |
+| 7–12 | see §8a: Uptime Kuma, Prometheus/Grafana/Loki, restore-drill CronJob, self-hosted runner, second Ollama, registry cache | each on its own | |
+| later | prod cut-over per app; a second node | only if wanted | |
 
-Roughly three weekends. Each phase leaves something working on its own.
+Phases 1–4 took one evening, not three weekends: the charts are the Compose
+files translated, and the restore scripts already existed. Each phase left
+something working on its own.
 
 ## 8a. After the cluster works — what else belongs on it
 

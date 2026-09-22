@@ -19,18 +19,24 @@ Staging runs *copies* restored from last night's backups; every merge to
 | `charts/` | one Helm chart per app |
 | `secrets/` | SealedSecrets only |
 
-Status: **phase 1 done 2026-09-21** — k3s + Argo CD + Sealed Secrets +
-Tailscale operator, all Synced/Healthy, Argo UI on the tailnet. Running on
-the current mini in a 6 GiB VM (DESIGN.md §5 "Phase A") ahead of the new
-machine; `docs/OPERATIONS.md` has the rebuild for when the old mini is
-dedicated. **Phase 2 done 2026-09-21** — the MCP runs in staging at
-`https://insidertrack-mcp-staging.tail3659a6.ts.net/mcp`, its image built by
-the app's own CI, its token sealed. **Phase 3 done 2026-09-21** —
-InsiderTrack in staging at `https://insidertrack-staging.tail3659a6.ts.net`
-(`/mcp` → the MCP), Postgres seeded by a restore Job from last night's
-off-site bundle: 19,984 trades, 284 members, 37,867 Form 4 rows on the first
-run. **Phase 4 done 2026-09-21** — Lecture Notes at
-`https://lecture-notes-staging.tail3659a6.ts.net`: 3 users, 201 lectures,
-2,872 transcript segments and 2,998 audio chunks restored; a live recording
-transcribed through Whisper on CPU. Next: phase 5, the GitOps loop (Image
-Updater follows `main`).
+## Status — 2026-09-21, phases 1–4 done in one evening
+
+Running on the current mini in a **6 GiB Lima VM** (DESIGN.md §5 "Phase A")
+ahead of the new machine; `docs/OPERATIONS.md` has the rebuild for when the
+old mini is dedicated.
+
+| | |
+|---|---|
+| Cluster | k3s 1.36, Argo CD 3.5 (self-managed), Sealed Secrets, Tailscale operator; UI at `argocd.tail3659a6.ts.net` (tailnet only) |
+| InsiderTrack | `https://insidertrack-staging.tail3659a6.ts.net` — Postgres seeded from last night's off-site bundle (19,984 trades, 284 members, 37,867 Form 4 rows); production API keys and mail credentials scrubbed from the copy; `/mcp` → the MCP |
+| InsiderTrack MCP | same host, `/mcp`; answers claude.ai with its own token |
+| Lecture Notes | `https://lecture-notes-staging.tail3659a6.ts.net` — 3 users, 201 lectures, 2,872 transcript segments, 2,998 audio chunks restored; migrations in an initContainer; a live recording transcribed by Whisper on CPU |
+| Images | each repo's CI pushes amd64 + arm64 to GHCR on every merge to `main` |
+
+**Next:** phase 5 — Argo CD Image Updater follows `:main`, so a Dependabot
+merge lands in staging with nobody touching anything. Then the write-up
+(phase 6) and the platform extras (§8a).
+
+**Found by staging already** (`docs/OPERATIONS.md` → Follow-ups): opening a
+Lecture Notes lecture whose audio is gone breaks the page; rclone's shared
+Drive client_id retires in 2026 and production's backups use it.

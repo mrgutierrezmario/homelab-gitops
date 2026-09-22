@@ -46,6 +46,17 @@ Order matters only once; after that Argo keeps it converged.
 Done when `argocd app list` (or the UI) shows every app **Synced / Healthy**
 — DESIGN.md phase 1.
 
+6. **The apps** need nothing from git — their charts and generated secrets
+   are already there — except the two rclone configs only the Mac can
+   produce (`insidertrack-rclone`, `lecture-notes-rclone`;
+   `secrets/README.md`). Until each is committed, that app's restore Job
+   fails after its deadline and the app waits. After a rebuild with the
+   sealing key restored, the committed ones still decrypt and nothing is
+   needed at all.
+
+Whole thing, from `limactl start` to three apps serving restored data:
+about half an hour, most of it image pulls and the audio mirror.
+
 ## Rebuild on the dedicated mini (PLAN.md step 3)
 
 The cluster carries nothing worth keeping: every app restores its own data
