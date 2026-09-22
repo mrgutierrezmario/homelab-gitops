@@ -15,7 +15,11 @@ spec:
         {{- include "mcp.selectorLabels" . | nindent 8 }}
     spec:
       securityContext:
+        # The image's USER is the name `mcp`; the kubelet needs a number to
+        # enforce runAsNonRoot. 999 is what useradd --system gave it.
         runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
         seccompProfile:
           type: RuntimeDefault
       containers:

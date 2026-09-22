@@ -4,7 +4,7 @@ description: InsiderTrack MCP server — stateless, one Deployment, relays to an
 type: application
 # Chart version: bump when the templates change. appVersion: the MCP release
 # the defaults are written for (the image tag in values-staging is `main`).
-version: 0.1.0
+version: 0.1.1
 appVersion: "0.2.0"
 home: https://github.com/mrgutierrezmario/insidertrack-mcp
 sources:
