@@ -5,11 +5,17 @@ Runbook for the k3s VM. Design in `../DESIGN.md`, the bigger picture in
 the dev container (Lima is a Mac program); the dev container can use the
 same kubeconfig with the server changed to `host.docker.internal`.
 
-Commands assume:
+Commands assume (it is in `~/.zshrc` on the mini, so every new terminal
+has it — the `localhost:8080 … EOF` error from kubectl means it is not set):
 
 ```sh
 export KUBECONFIG=~/.lima/k3s/copied-from-guest/kubeconfig.yaml
 ```
+
+The Mac itself must be on the tailnet (the Tailscale app, logged in as the
+tailnet owner). Production never needed that — its Tailscale runs inside
+the containers — but every cluster URL is tailnet-only unless a manifest
+asks for Funnel, and Argo's does not.
 
 ## Build the cluster from nothing
 
@@ -25,7 +31,10 @@ Order matters only once; after that Argo keeps it converged.
 3. **First secret** — seal the Tailscale OAuth client into
    `secrets/tailscale/operator-oauth.yaml` as `secrets/README.md` says,
    commit, push. Within 3 min the operator syncs and
-   `https://argocd.tail3659a6.ts.net` answers (tailnet only).
+   `https://argocd.tail3659a6.ts.net` answers (tailnet only). Impatient:
+   `kubectl -n argocd annotate application tailscale-operator argocd.argoproj.io/refresh=hard --overwrite`.
+   The operator pod sits in `ContainerCreating` until the Secret exists —
+   that is it waiting, not a failure.
 4. **Back up the sealing key** — also in `secrets/README.md`. Do it now,
    not later.
 5. **Log in** — `admin` plus the password from

@@ -5,8 +5,8 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **design** (2026-09-20). Nothing built. Start after the three
-projects have had a week to breathe (LinkedIn post, MCP in daily use).
+Status: **phase 1 done** (2026-09-21) — cluster and platform up on the
+current mini (Phase A, 6 GiB VM); see `README.md` for where things stand.
 
 ## 1. Why, in one paragraph
 
