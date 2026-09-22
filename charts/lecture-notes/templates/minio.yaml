@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ln.minioName" . }}
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  clusterIP: None
+  selector:
+    {{- include "ln.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+  ports:
+    - name: s3
+      port: 9000
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "ln.minioName" . }}
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  serviceName: {{ include "ln.minioName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ln.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: minio
+  template:
+    metadata:
+      labels:
+        {{- include "ln.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: minio
+    spec:
+      containers:
+        - name: minio
+          image: {{ .Values.minio.image }}
+          args: ["server", "/data", "--address", ":9000"]
+          envFrom:
+            - secretRef:
+                name: {{ .Values.secrets.minio }}
+          ports:
+            - name: s3
+              containerPort: 9000
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet: { path: /minio/health/live, port: s3 }
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /minio/health/live, port: s3 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.minio.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.minio.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.minio.storage }}

@@ -1,0 +1,28 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "ln.name" . }}
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+  {{- if .Values.ingress.funnel }}
+  annotations:
+    tailscale.com/funnel: "true"
+  {{- end }}
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "ln.name" . }}
+                port:
+                  number: 8000
+{{- end }}

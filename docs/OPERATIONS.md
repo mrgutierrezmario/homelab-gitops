@@ -116,6 +116,9 @@ Argo's selfHeal brings it back:
 kubectl -n insidertrack-staging delete job insidertrack-restore
 kubectl -n insidertrack-staging logs -f job/insidertrack-restore -c fetch    # rclone
 kubectl -n insidertrack-staging logs -f job/insidertrack-restore             # psql
+
+kubectl -n lecture-notes-staging delete job lecture-notes-restore
+kubectl -n lecture-notes-staging logs -f job/lecture-notes-restore -c restore-db
 ```
 
 The restore swaps the database under the running app (rename, not drop

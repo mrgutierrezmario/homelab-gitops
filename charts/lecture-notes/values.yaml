@@ -1,0 +1,69 @@
+# Defaults true in every environment; values-<env>.yaml has the rest.
+# Shape follows deploy/compose.yml in the app repo: postgres + minio + app.
+
+image:
+  repository: ghcr.io/mrgutierrezmario/lecture-note-app
+  tag: main
+  pullPolicy: Always
+
+ingress:
+  enabled: true
+  host: lecture-notes
+  funnel: false
+tailnet: tail3659a6.ts.net
+
+postgres:
+  image: postgres:18-alpine
+  user: postgres
+  database: lecture_notes
+  storage: 2Gi
+  storageClassName: ""
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+minio:
+  image: quay.io/minio/minio:latest
+  mcImage: quay.io/minio/mc:latest
+  bucket: lecture-audio
+  storage: 20Gi
+  storageClassName: ""
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+# SealedSecrets under secrets/lecture-notes/.
+secrets:
+  db: lecture-notes-db          # POSTGRES_PASSWORD
+  minio: lecture-notes-minio    # MINIO_ROOT_USER, MINIO_ROOT_PASSWORD
+  app: lecture-notes-app        # SECRET_KEY
+  rclone: lecture-notes-rclone  # rclone.conf — remotes gdrive + lecture-backup
+
+restore:
+  enabled: true
+  rcloneRemote: "lecture-backup:"
+  rcloneImage: rclone/rclone:1
+  # The audio mirror (remote:audio/) is hundreds of MB and only makes old
+  # lectures playable in staging. Off unless a test needs it.
+  audio: false
+  # A copy must not act as production: users' Drive links are encrypted with
+  # production's SECRET_KEY and unreadable here anyway; dropping them keeps
+  # the log clean and makes the guarantee explicit.
+  scrubTables:
+    - drive_links
+    - drive_files
+
+app:
+  ollamaBaseUrl: ""
+  ollamaModel: llama3
+  whisperModel: small
+  audioRetentionDays: "14"
+  # A copy on a public URL must not take sign-ups.
+  registrationOpen: "false"
+  resources:
+    # Whisper `small` needs ~2 GB while a chunk is being transcribed.
+    requests: { cpu: 250m, memory: 512Mi }
+    limits: { memory: 3Gi }
+  # Whisper / Hugging Face model downloads survive pod restarts.
+  cacheStorage: 3Gi
+  extraEnv: []

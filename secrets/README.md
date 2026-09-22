@@ -11,7 +11,8 @@ secrets/
 ├── pub-cert.pem          # the controller's public key — lets kubeseal work without cluster access
 ├── tailscale/            # operator-oauth — read by apps/platform/tailscale-operator.yaml
 ├── insidertrack-mcp/     # mcp-tokens — read by apps/staging/insidertrack-mcp.yaml
-└── insidertrack/         # insidertrack-db, insidertrack-app, insidertrack-rclone — apps/staging/insidertrack.yaml
+├── insidertrack/         # insidertrack-db, insidertrack-app, insidertrack-rclone — apps/staging/insidertrack.yaml
+└── lecture-notes/        # lecture-notes-db, -minio, -app, -rclone — apps/staging/lecture-notes.yaml
 ```
 
 ## Sealing a secret
@@ -88,6 +89,20 @@ backup credential living in the cluster; rotate it (`rclone config
 reconnect gdrive-stock-tracker:` on the Mac, re-seal) if the cluster is
 ever compromised. rclone will warn it cannot save a refreshed token to the
 read-only mount; harmless, the refresh token itself does not change.
+
+### Lecture Notes (phase 4)
+
+`lecture-notes-db`, `lecture-notes-minio` and `lecture-notes-app` were
+generated and sealed unseen. The rclone one, from the Mac, cut from the
+config file — the remotes are `gdrive` and `lecture-backup` here:
+
+```sh
+awk '/^\[/{p=($0=="[gdrive]"||$0=="[lecture-backup]")} p' "$(rclone config file | tail -1)" \
+  | kubectl create secret generic lecture-notes-rclone -n lecture-notes-staging \
+      --from-file=rclone.conf=/dev/stdin --dry-run=client -o yaml \
+  | kubeseal --cert secrets/pub-cert.pem --format yaml \
+  > secrets/lecture-notes/lecture-notes-rclone.yaml
+```
 
 ## The Tailscale OAuth client (first secret, phase 1)
 

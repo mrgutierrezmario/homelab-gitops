@@ -1,0 +1,33 @@
+# Phase 4: AI Lecture Notes in staging — Postgres, MinIO, the app (migrations
+# in an initContainer), and a restore Job that seeds the database from the
+# newest off-site bundle. Whisper runs on CPU in the pod.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lecture-notes-staging
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: charts/lecture-notes
+      helm:
+        releaseName: lecture-notes
+        valueFiles:
+          - values-staging.yaml
+    # lecture-notes-db, -minio, -app, -rclone — sealed.
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: secrets/lecture-notes
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lecture-notes-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

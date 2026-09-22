@@ -1,0 +1,7 @@
+ingress:
+  host: lecture-notes-staging
+  funnel: true
+
+app:
+  # The Mac that hosts the VM, from inside it (see charts/insidertrack/README.md).
+  ollamaBaseUrl: http://host.lima.internal:11434

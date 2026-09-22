@@ -1,0 +1,133 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ln.name" . }}
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  selector:
+    {{- include "ln.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ln.name" . }}-cache
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: {{ .Values.app.cacheStorage }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ln.name" . }}
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+  annotations:
+    # After the data services (0) and the restore (1).
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: 1
+  # The cleanup loop and the model cache PVC: one pod at a time.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "ln.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: app
+  template:
+    metadata:
+      labels:
+        {{- include "ln.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: app
+    spec:
+      initContainers:
+        # deploy/docker-entrypoint.sh runs the migrations before uvicorn;
+        # here they are their own step (DESIGN.md §7), same image, same
+        # command. A restored dump carries alembic_version, so a newer
+        # image upgrades the copy — the Dependabot check this cluster is for.
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              until pg_isready -q -h "$POSTGRES_HOST" -p 5432; do sleep 1; done
+              cd alembic && alembic upgrade head
+          env:
+            - { name: POSTGRES_HOST, value: {{ include "ln.postgresName" . }} }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.db }}, key: POSTGRES_PASSWORD } }
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@{{ include "ln.postgresName" . }}:5432/{{ .Values.postgres.database }}"
+      containers:
+        - name: app
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The entrypoint minus the migration step it already ran.
+          command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            # Same names as deploy/compose.yml; deploy/.env.example documents them.
+            - { name: POSTGRES_HOST, value: {{ include "ln.postgresName" . }} }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.db }}, key: POSTGRES_PASSWORD } }
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@{{ include "ln.postgresName" . }}:5432/{{ .Values.postgres.database }}"
+            - { name: S3_ENDPOINT_URL, value: "http://{{ include "ln.minioName" . }}:9000" }
+            - { name: S3_BUCKET, value: {{ .Values.minio.bucket }} }
+            - name: S3_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_USER } }
+            - name: S3_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_PASSWORD } }
+            - name: SECRET_KEY
+              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.app }}, key: SECRET_KEY } }
+            - { name: OLLAMA_BASE_URL, value: {{ .Values.app.ollamaBaseUrl | quote }} }
+            - { name: OLLAMA_MODEL, value: {{ .Values.app.ollamaModel | quote }} }
+            - { name: WHISPER_MODEL, value: {{ .Values.app.whisperModel | quote }} }
+            - { name: AUDIO_RETENTION_DAYS, value: {{ .Values.app.audioRetentionDays | quote }} }
+            - { name: REGISTRATION_OPEN, value: {{ .Values.app.registrationOpen | quote }} }
+            - { name: PUBLIC_URL, value: {{ include "ln.publicUrl" . | quote }} }
+            # Mail deliberately unset: "Forgot password?" is hidden, nobody is emailed.
+            - { name: MAIL_USERNAME, value: "" }
+            {{- with .Values.app.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          volumeMounts:
+            - name: state
+              mountPath: /app/state
+            - name: cache
+              mountPath: /root/.cache
+          startupProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 30
+            timeoutSeconds: 10
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}
+      volumes:
+        # Settings-panel writes (API keys, overrides). A copy starts blank.
+        - name: state
+          emptyDir: {}
+        - name: cache
+          persistentVolumeClaim:
+            claimName: {{ include "ln.name" . }}-cache
