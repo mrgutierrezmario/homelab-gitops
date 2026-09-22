@@ -82,6 +82,11 @@ metadata:
     argocd.argoproj.io/sync-options: Replace=true,Force=true
 spec:
   backoffLimit: 2
+  # A Job that never starts (a missing Secret, an image that will not pull)
+  # must fail rather than hang: a Running sync blocks every later commit,
+  # including the one that would fix it (2026-09-21). 20 min covers a
+  # slow bundle download on first run.
+  activeDeadlineSeconds: 1200
   template:
     metadata:
       labels:

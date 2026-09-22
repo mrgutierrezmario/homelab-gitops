@@ -82,6 +82,7 @@ fine while the count is small.
 | Stop everything | `limactl stop k3s` — production is unaffected, it is not in the VM |
 | Something is `OutOfSync` and stays so | click Sync in the UI once; if it flips back, someone edited the cluster by hand and `selfHeal` is reverting it — fix it in git |
 | Roll back a change | `git revert`, push; Argo applies the revert |
+| A commit is not being applied, app says `Syncing` for ages | a sync waiting on a wave (a Job that cannot start) blocks all later syncs. `kubectl -n argocd patch application <name> --type json -p '[{"op":"remove","path":"/operation"}]'` terminates it; auto-sync restarts on the newest commit |
 | Upgrade k3s | `limactl shell k3s -- curl -sfL https://get.k3s.io \| INSTALL_K3S_CHANNEL=stable sh -` — same installer, in place. Pods restart, PVC data stays |
 | Upgrade Argo CD | bump `targetRevision` in `apps/platform/argocd.yaml` (Argo upgrades itself). If it ever cannot, `bootstrap/argocd.sh` reads the same file |
 | Kubectl from the dev container | copy the kubeconfig in and `sed -i 's/127.0.0.1/host.docker.internal/' …`; the cert is valid for that name |
