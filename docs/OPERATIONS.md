@@ -89,11 +89,11 @@ fine while the count is small.
 ## Images
 
 Each app's CI pushes to GHCR on `main` (`:main`, `:main-<sha>`) and on
-`v*` tags (`:X.Y.Z`, `:X.Y`, `:latest`), amd64 + arm64. **A package is
-private the first time it is created**, even from a public repo: after the
-first push, github.com/mrgutierrezmario?tab=packages → the package →
-Package settings → Change visibility → Public. Until then the pod sits in
-`ImagePullBackOff`.
+`v*` tags (`:X.Y.Z`, `:X.Y`, `:latest`), amd64 + arm64. A package created
+by a public repo's workflow comes out public (verified with the MCP,
+2026-09-21); if a pod ever sits in `ImagePullBackOff` on a fresh package,
+check github.com/mrgutierrezmario?tab=packages → Package settings →
+visibility.
 
 ## Restore a namespace
 
