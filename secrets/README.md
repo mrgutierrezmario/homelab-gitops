@@ -68,11 +68,13 @@ kubectl -n insidertrack-staging get secret insidertrack-app -o jsonpath='{.data.
 
 `insidertrack-rclone` is the one only the Mac can produce — it holds the
 Google Drive token and the crypt passphrase `deploy/backup-setup.sh`
-created. Just the two remotes the restore needs, straight from rclone,
-never through a file that outlives the command:
+created. Just the two remotes the restore needs, cut from the config file
+(**not** `rclone config show` — it redacts passwords, and the sealed copy
+then fails with "is it obscured?"; learned 2026-09-21), never through a
+file that outlives the command:
 
 ```sh
-{ rclone config show gdrive-stock-tracker; echo; rclone config show stock-tracker-backup; } \
+awk '/^\[/{p=($0=="[gdrive-stock-tracker]"||$0=="[stock-tracker-backup]")} p' "$(rclone config file | tail -1)" \
   | kubectl create secret generic insidertrack-rclone -n insidertrack-staging \
       --from-file=rclone.conf=/dev/stdin --dry-run=client -o yaml \
   | kubeseal --cert secrets/pub-cert.pem --format yaml \

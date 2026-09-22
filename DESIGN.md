@@ -5,9 +5,9 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **phase 2 done** (2026-09-21) — cluster and platform up on the
-current mini (Phase A, 6 GiB VM), the MCP serving from staging over Funnel;
-see `README.md` for where things stand.
+Status: **phase 3 done** (2026-09-21) — cluster and platform up on the
+current mini (Phase A, 6 GiB VM); InsiderTrack + MCP in staging, restored
+nightly-bundle data, public over Funnel. See `README.md`.
 
 ## 1. Why, in one paragraph
 

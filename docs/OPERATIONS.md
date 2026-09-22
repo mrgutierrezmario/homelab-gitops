@@ -96,6 +96,16 @@ by a public repo's workflow comes out public (verified with the MCP,
 check github.com/mrgutierrezmario?tab=packages → Package settings →
 visibility.
 
+## Follow-ups the cluster surfaced
+
+- **rclone's shared Google Drive client_id is being retired during 2026**
+  (rclone prints a NOTICE on every run). This hits production's nightly
+  `backup.sh` on the Mac, not just the staging restore. Fix in the
+  InsiderTrack repo: make an own client_id
+  (https://rclone.org/drive/#making-your-own-client-id), `rclone config
+  update gdrive-stock-tracker client_id … client_secret …`, then re-seal
+  `insidertrack-rclone` here. Lecture Notes' `gdrive` remote likewise.
+
 ## Restore a namespace (re-seed staging from last night's backup)
 
 Each stateful chart has a restore Job that runs once per change to its

@@ -25,5 +25,8 @@ the current mini in a 6 GiB VM (DESIGN.md §5 "Phase A") ahead of the new
 machine; `docs/OPERATIONS.md` has the rebuild for when the old mini is
 dedicated. **Phase 2 done 2026-09-21** — the MCP runs in staging at
 `https://insidertrack-mcp-staging.tail3659a6.ts.net/mcp`, its image built by
-the app's own CI, its token sealed. **Phase 3 in progress** — InsiderTrack
-with Postgres and a restore Job from the off-site backup.
+the app's own CI, its token sealed. **Phase 3 done 2026-09-21** —
+InsiderTrack in staging at `https://insidertrack-staging.tail3659a6.ts.net`
+(`/mcp` → the MCP), Postgres seeded by a restore Job from last night's
+off-site bundle: 19,984 trades, 284 members, 37,867 Form 4 rows on the first
+run. Next: phase 4, Lecture Notes.
