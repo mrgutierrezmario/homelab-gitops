@@ -36,7 +36,8 @@ Order matters only once; after that Argo keeps it converged.
    The operator pod sits in `ContainerCreating` until the Secret exists —
    that is it waiting, not a failure.
 4. **Back up the sealing key** — also in `secrets/README.md`. Do it now,
-   not later.
+   not later. Also commit the public half so sealing works from anywhere:
+   `kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --fetch-cert > secrets/pub-cert.pem`.
 5. **Log in** — `admin` plus the password from
    `kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`.
    Change it in the UI (User Info → Update password), then delete the
@@ -84,6 +85,15 @@ fine while the count is small.
 | Upgrade k3s | `limactl shell k3s -- curl -sfL https://get.k3s.io \| INSTALL_K3S_CHANNEL=stable sh -` — same installer, in place. Pods restart, PVC data stays |
 | Upgrade Argo CD | bump `targetRevision` in `apps/platform/argocd.yaml` (Argo upgrades itself). If it ever cannot, `bootstrap/argocd.sh` reads the same file |
 | Kubectl from the dev container | copy the kubeconfig in and `sed -i 's/127.0.0.1/host.docker.internal/' …`; the cert is valid for that name |
+
+## Images
+
+Each app's CI pushes to GHCR on `main` (`:main`, `:main-<sha>`) and on
+`v*` tags (`:X.Y.Z`, `:X.Y`, `:latest`), amd64 + arm64. **A package is
+private the first time it is created**, even from a public repo: after the
+first push, github.com/mrgutierrezmario?tab=packages → the package →
+Package settings → Change visibility → Public. Until then the pod sits in
+`ImagePullBackOff`.
 
 ## Restore a namespace
 

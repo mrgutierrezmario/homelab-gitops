@@ -1,0 +1,33 @@
+# Phase 2: the MCP alone, on its own hostname, relaying to production.
+# Namespace insidertrack-staging is shared with the InsiderTrack app from
+# phase 3 on (DESIGN.md §4).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: insidertrack-mcp-staging
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  sources:
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: charts/insidertrack-mcp
+      helm:
+        releaseName: insidertrack-mcp
+        valueFiles:
+          - values-staging.yaml
+    # mcp-tokens, sealed. Separate so the chart stays free of secrets.
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: secrets/insidertrack-mcp
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: insidertrack-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

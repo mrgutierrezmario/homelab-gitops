@@ -1,0 +1,44 @@
+# Defaults that are true in every environment. Per-environment values
+# (hostname, upstream, Funnel) are in values-<env>.yaml.
+
+image:
+  repository: ghcr.io/mrgutierrezmario/insidertrack-mcp
+  tag: main
+  # `main` moves; Always makes a pod restart pick up the newest build even
+  # before Image Updater (phase 5) is steering the tag.
+  pullPolicy: Always
+
+# Where the InsiderTrack API is. Inside its Compose stack that is
+# http://tailscale:8003; here it is a URL the pod can reach.
+insidertrackUrl: ""
+
+# Path the MCP endpoint is served at — used for the Ingress rule, MCP_PATH
+# and the probes, so the three never disagree. The Tailscale *operator*
+# proxies the path through unchanged (unlike `tailscale serve`, which
+# stripped it), so the server mounts at the same path the Ingress routes.
+mountPath: /mcp
+
+# Name of a Secret in the release namespace with key MCP_TOKENS
+# ("name:token,name2:token2"). Created out of band as a SealedSecret under
+# secrets/<release>/ — the chart never renders a token.
+tokensSecret: mcp-tokens
+
+# The one write tool (watchlist_add). Off everywhere by default; staging
+# talks to production's API, so it stays off there too.
+allowWrites: false
+
+ingress:
+  enabled: true
+  # A bare MagicDNS name; the operator appends the tailnet.
+  host: insidertrack-mcp
+  # Public HTTPS (claude.ai must reach it). false = tailnet only.
+  funnel: false
+
+replicaCount: 1
+
+resources:
+  requests: { cpu: 25m, memory: 64Mi }
+  limits: { memory: 128Mi }
+
+# Extra environment for the container, e.g. INSIDERTRACK_WATCHLIST_EMAIL.
+extraEnv: []

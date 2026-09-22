@@ -1,0 +1,30 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "mcp.name" . }}
+  labels:
+    {{- include "mcp.labels" . | nindent 4 }}
+  {{- if .Values.ingress.funnel }}
+  annotations:
+    tailscale.com/funnel: "true"
+  {{- end }}
+spec:
+  ingressClassName: tailscale
+  # The operator names the tailnet node after the first TLS host and gets it
+  # a certificate.
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: {{ .Values.mountPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "mcp.name" . }}
+                port:
+                  number: 8100
+{{- end }}

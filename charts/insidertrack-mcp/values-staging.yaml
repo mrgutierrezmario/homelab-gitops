@@ -1,0 +1,8 @@
+# Staging: its own hostname for now (phase 2). In phase 3 it moves under the
+# InsiderTrack staging host at /mcp, next to the app, the way production
+# is laid out — and points at the staging copy instead of production.
+insidertrackUrl: https://mgnts-stock-tracker.tail3659a6.ts.net
+
+ingress:
+  host: insidertrack-mcp-staging
+  funnel: true

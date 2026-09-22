@@ -8,22 +8,47 @@ One directory per consumer, matching the Argo Application that mounts it:
 
 ```
 secrets/
-└── tailscale/            # operator-oauth — read by apps/platform/tailscale-operator.yaml
+├── pub-cert.pem          # the controller's public key — lets kubeseal work without cluster access
+├── tailscale/            # operator-oauth — read by apps/platform/tailscale-operator.yaml
+└── insidertrack-mcp/     # mcp-tokens — read by apps/staging/insidertrack-mcp.yaml
 ```
 
 ## Sealing a secret
 
-Needs the controller running (it comes up in wave 0 of the root app) and
-`kubeseal` on the Mac (`brew install kubeseal`). The controller is not in
-kubeseal's default namespace, so always pass both flags:
+`kubeseal` (`brew install kubeseal`) encrypts to the controller's public
+key. That key is committed as `pub-cert.pem` (public — safe), so sealing
+works from any machine, the dev container included, with no kubeconfig:
 
 ```sh
-export KUBECONFIG=~/.lima/k3s/copied-from-guest/kubeconfig.yaml
-export SEAL="kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml"
+kubectl create secret generic <name> -n <namespace> \
+  --from-literal=KEY=value \
+  --dry-run=client -o yaml \
+  | kubeseal --cert secrets/pub-cert.pem --format yaml \
+  > secrets/<consumer>/<name>.yaml
+```
 
-kubectl create secret generic operator-oauth -n tailscale \
-  --from-literal=client_id=… --from-literal=client_secret=… \
-  --dry-run=client -o yaml | $SEAL > secrets/tailscale/operator-oauth.yaml
+`--dry-run=client` means kubectl only prints the manifest; nothing touches
+a cluster. Refresh `pub-cert.pem` after the controller's key is rotated or
+the cluster rebuilt (needs `KUBECONFIG`; the controller is not in
+kubeseal's default namespace):
+
+```sh
+kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --fetch-cert > secrets/pub-cert.pem
+```
+
+### The MCP tokens (phase 2)
+
+Staging gets its own token — never production's. Name it after the client
+that will hold it:
+
+```sh
+TOKEN=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
+kubectl create secret generic mcp-tokens -n insidertrack-staging \
+  --from-literal=MCP_TOKENS="claude-ai-staging:$TOKEN" \
+  --dry-run=client -o yaml \
+  | kubeseal --cert secrets/pub-cert.pem --format yaml \
+  > secrets/insidertrack-mcp/mcp-tokens.yaml
+echo "$TOKEN"      # paste into the claude.ai connector, then forget it
 ```
 
 Commit the output. Argo applies it, the controller unseals it into a real
@@ -32,6 +57,18 @@ are part of the encryption — a sealed secret cannot be moved to another
 namespace by editing the file.
 
 ## The Tailscale OAuth client (first secret, phase 1)
+
+This one is sealed before `pub-cert.pem` exists, so it uses the cluster
+directly:
+
+```sh
+export KUBECONFIG=~/.lima/k3s/copied-from-guest/kubeconfig.yaml
+kubectl create secret generic operator-oauth -n tailscale \
+  --from-literal=client_id=… --from-literal=client_secret=… \
+  --dry-run=client -o yaml \
+  | kubeseal --controller-namespace sealed-secrets --controller-name sealed-secrets-controller --format yaml \
+  > secrets/tailscale/operator-oauth.yaml
+```
 
 Tailnet admin console → Settings → OAuth clients → Generate. Scopes:
 `Devices: Core` write, `Auth Keys` write, tag `tag:k8s-operator`. Before
