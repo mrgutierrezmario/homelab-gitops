@@ -32,7 +32,7 @@ old mini is dedicated.
 | InsiderTrack MCP | same host, `/mcp`; answers claude.ai with its own token |
 | Lecture Notes | `https://lecture-notes-staging.tail3659a6.ts.net` — 3 users, 201 lectures, 2,872 transcript segments, 2,998 audio chunks restored; migrations in an initContainer; a live recording transcribed by Whisper on CPU |
 | Images | each repo's CI pushes amd64 + arm64 to GHCR on every merge to `main` |
-| Update loop | Image Updater watches those three tags and **commits the new digest to this repo**; Argo syncs the commit, and `git log` is the deployment history. Verified 2026-09-23: all three apps pinned to `main@sha256:…` by the bot, digests matching GHCR. The *unattended* half — a merge reaching staging with nobody typing anything — is not proven yet; the first attempt sat unapplied because the repo-server was being killed by its own liveness probe (`docs/OPERATIONS.md`). Fixed the same day; watching. |
+| Update loop | Image Updater watches those three tags and **commits the new digest to this repo**; Argo syncs the commit, and `git log` is the deployment history. Both halves verified 2026-09-23 — the bot pinned all three apps to `main@sha256:…` (digests checked against GHCR), and a later commit reached the cluster with nobody refreshing anything. Getting there took three real fixes, all in `docs/OPERATIONS.md`: the repo-server was being killed by a one-second liveness probe, nothing capped Whisper's CPU, and the restore Job re-ran on every sync |
 
 **Next:** phase 6, the write-up (architecture diagram, restore-drill doc),
 then the platform extras (DESIGN §8a): Uptime Kuma, Prometheus/Grafana/Loki,
