@@ -5,10 +5,10 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **phase 5 done** (2026-09-23) — cluster and platform up on the
+Status: **phase 5 built** (2026-09-23) — cluster and platform up on the
 current mini (Phase A, 6 GiB VM); all three apps in staging from restored
-nightly bundles, public over Funnel, and following `main` on their own.
-See `README.md`.
+nightly bundles, public over Funnel, and wired to follow `main`. Whether
+they do it unattended is the open question; see `README.md`.
 
 ## 1. Why, in one paragraph
 
@@ -155,7 +155,7 @@ homelab-gitops/
 | 2 — InsiderTrack MCP (½ day) | first chart — stateless, one Deployment, easiest win; points at production InsiderTrack read-only over Tailscale for now | staging MCP answers from claude.ai with its own token | **done 2026-09-21** — pointed at production's public URL for a day, then at the staging copy in phase 3 |
 | 3 — InsiderTrack (2 days) | chart with Postgres, restore Job from the nightly bundle, scrapers running against the copy, ingress with `/` and `/mcp` | the site at `insidertrack-staging` shows yesterday's data and this morning's scrape | **done 2026-09-21** — yesterday's data verified; the morning scrape is tomorrow's check |
 | 4 — Lecture Notes (2 days) | chart with Postgres + MinIO + restore, alembic initContainer, Whisper smoke test (one uploaded clip) | a recorded clip transcribes; History shows the restored lectures | **done 2026-09-21** — a live recording, not a clip |
-| 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human | **done 2026-09-23** — digest strategy on `:main`, git write-back into each `values-staging.yaml` |
+| 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human | **built 2026-09-23** — digest strategy on `:main`, git write-back into each `values-staging.yaml`, first write-back verified against GHCR. Not signed off: the "without a human" half waits on a merge landing unattended, after the repo-server probe fix |
 | 6 — write-up (½ day) | README with the architecture diagram, `docs/OPERATIONS.md`, a restore-drill doc that replaces today's by-hand candidate test; LinkedIn About gets a fourth bullet | — | runbook exists and is kept current; diagram and drill doc pending |
 | 7–12 | see §8a: Uptime Kuma, Prometheus/Grafana/Loki, restore-drill CronJob, self-hosted runner, second Ollama, registry cache | each on its own | |
 | later | prod cut-over per app; a second node | only if wanted | |
