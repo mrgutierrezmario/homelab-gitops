@@ -20,6 +20,7 @@ Staging runs *copies* restored from last night's backups; every merge to
 | `apps/staging/` | Argo Applications for the three apps (phases 2–4) |
 | `charts/` | one Helm chart per app |
 | `secrets/` | SealedSecrets only |
+| `mac/` | the daily backup-age check, as a launchd job — the one piece that runs on the Mac, and the only part of the retired cluster still watching production |
 
 ## How it fits together
 

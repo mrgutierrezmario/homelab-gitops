@@ -36,17 +36,17 @@ not recover on its own.
 
 ## While it is not running
 
-Nothing watches the backups. The daily `backup-age` check and the weekly
-restore drill lived in the cluster, so until it is rebuilt, production's
-03:00 backups need checking by hand — they still *run* (launchd on the Mac,
-independent of all this), but a silent stop would go unnoticed:
+The weekly restore drill is gone until the cluster is rebuilt — nothing
+proves the bundles still restore.
+
+The daily backup-age check survived: `mac/install.sh` puts it on the Mac as
+a launchd job (09:30 daily, emails only on trouble), covering the gap where
+`backup.sh` stops running silently. `mac/README.md` says what it does and
+does not cover. By hand, any time:
 
 ```sh
-rclone lsf stock-tracker-backup:daily | sort | tail -3
-rclone lsf lecture-backup:daily | sort | tail -3
+mac/backup-age-check.sh --quiet
 ```
-
-Today's date in the newest filename means it ran.
 
 ## Build the cluster from nothing
 
