@@ -161,6 +161,8 @@ Production is untouched by all of this: it builds from source on the Mac
 
 ## Restore a namespace (re-seed staging from last night's backup)
 
+`docs/restore-drill.md` covers what this proves and what it does not.
+
 Each stateful chart has a restore Job that runs once per change to its
 spec. To run it again — a fresh copy, or after a failure — delete it and
 Argo's selfHeal brings it back:
