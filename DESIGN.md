@@ -5,7 +5,9 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **phases 1–7 and 9 done** (2026-09-21 / 23) — cluster and platform
+Status: **built, verified, then stopped** — the VM was deleted 2026-09-23
+after twice starving the Mac of CPU; it returns on the dedicated mini
+(`README.md`). Phases 1–7 and 9 done (2026-09-21 / 23) — cluster and platform
 up on the current mini (Phase A, 6 GiB VM); all three apps in staging from
 restored bundles, public over Funnel, following `main` unattended, written
 up, re-restored weekly by a drill that smoke-tests itself, and watched by

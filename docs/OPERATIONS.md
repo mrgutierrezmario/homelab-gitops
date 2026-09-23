@@ -17,6 +17,37 @@ tailnet owner). Production never needed that — its Tailscale runs inside
 the containers — but every cluster URL is tailnet-only unless a manifest
 asks for Funnel, and Argo's does not.
 
+## Before rebuilding: what took it down
+
+The cluster ran on the *current* mini alongside production and a dev
+container, and twice starved the Mac of CPU. Deleted 2026-09-23. Do not
+rebuild it on a machine that is doing anything else. What it needs:
+
+| | |
+|---|---|
+| Its own box | the old mini once production moves (`PLAN.md` step 3) — not a share of a working machine |
+| CPU, not RAM | memory was never the binding constraint. Four vCPUs gave load averages of 63 with the disk idle |
+| Whisper capped | `OMP_NUM_THREADS` **and** a CPU limit. CTranslate2 sizes its thread pool from the cores it can see, ignoring the cgroup, so a quota alone means threads outnumber it: everything runnable, nothing running, throttle stalls at each period |
+| A first boot with nothing heavy | Lecture Notes is at `replicas: 0` in `values-staging.yaml`. Bring the node up, watch it idle, then set it to 1 |
+
+The failure is self-feeding: starvation times out liveness probes and
+kubelet heartbeats, Kubernetes restarts pods, restarts cost CPU. It does
+not recover on its own.
+
+## While it is not running
+
+Nothing watches the backups. The daily `backup-age` check and the weekly
+restore drill lived in the cluster, so until it is rebuilt, production's
+03:00 backups need checking by hand — they still *run* (launchd on the Mac,
+independent of all this), but a silent stop would go unnoticed:
+
+```sh
+rclone lsf stock-tracker-backup:daily | sort | tail -3
+rclone lsf lecture-backup:daily | sort | tail -3
+```
+
+Today's date in the newest filename means it ran.
+
 ## Build the cluster from nothing
 
 Order matters only once; after that Argo keeps it converged.

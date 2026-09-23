@@ -81,11 +81,33 @@ Three properties this shape buys, and they are the point of the project:
 - **Production is untouched by all of it.** It still builds from source on
   the Mac and moves only when a person runs `deploy/start.sh`.
 
-## Status — phases 1–7 and 9 done (2026-09-21 / 23)
+## Status — built and working; **not running** (2026-09-23)
 
-Running on the current mini in a **6 GiB Lima VM** (DESIGN.md §5 "Phase A")
-ahead of the new machine; `docs/OPERATIONS.md` has the rebuild for when the
-old mini is dedicated.
+Phases 1–7 and 9 are built, were verified working, and are **stopped**. The
+VM was deleted on 2026-09-23 after it twice starved the Mac of CPU — the
+second time taking the dev container down with it. Production was never
+affected (it is Docker Compose, outside the VM), but a staging cluster that
+can disrupt the machine production runs on is not worth running.
+
+**Phase A was the mistake, not the work.** A 6 GiB / 6-vCPU VM sharing a
+16 GB, 10-core Mac with production *and* a dev container has no margin: the
+first symptom was Argo's repo-server being killed by its own liveness probe,
+the last was a load average of 63 on four cores. `PLAN.md` step 3 always had
+this living on the old mini once production moves to the new one — with
+12 GiB and nothing else competing. That is where it comes back.
+
+Nothing is lost. Everything below is in this repo, and all of it restored
+its own data from the nightly backups:
+
+```sh
+limactl start --name k3s bootstrap/lima.yaml   # cpus: 6, memory: 12GiB when dedicated
+bootstrap/argocd.sh                            # then restore the sealing key
+```
+
+`docs/OPERATIONS.md` → "Build the cluster from nothing" is the full sequence
+(~30 minutes, mostly image pulls). **Read `docs/OPERATIONS.md` → "Before
+rebuilding" first** — the CPU lessons are there, and Lecture Notes is parked
+at 0 replicas on purpose.
 
 | | |
 |---|---|
