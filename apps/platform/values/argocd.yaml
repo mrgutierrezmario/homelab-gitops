@@ -42,6 +42,14 @@ server:
     path: /
     pathType: Prefix
     tls: true
+  # See repoServer below — the same one-second default, the same problem.
+  readinessProbe:
+    timeoutSeconds: 5
+    failureThreshold: 5
+  livenessProbe:
+    timeoutSeconds: 10
+    periodSeconds: 30
+    failureThreshold: 5
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 512Mi }
@@ -52,6 +60,24 @@ controller:
     limits: { memory: 1Gi }
 
 repoServer:
+  # The chart gives both probes `timeoutSeconds: 1`. The liveness path is
+  # `/healthz?full=true`, which makes the repo-server actually exercise its
+  # git and helm tooling — more than a second's work on a four-vCPU VM that
+  # is also running Whisper, two Postgres instances and MinIO. It failed 16
+  # times in 23 hours and was killed 3 of them (2026-09-23), and while it is
+  # down or restarting, applications cannot be refreshed: they keep their
+  # last known revision and still report `Synced`. That is what made the
+  # phase 5 write-backs look ignored.
+  #
+  # A genuinely hung repo-server still gets restarted — it now takes 2.5
+  # minutes of sustained failure rather than 30 seconds of being busy.
+  readinessProbe:
+    timeoutSeconds: 5
+    failureThreshold: 5
+  livenessProbe:
+    timeoutSeconds: 10
+    periodSeconds: 30
+    failureThreshold: 5
   resources:
     requests: { cpu: 50m, memory: 192Mi }
     # Renders every chart in this repo plus the platform charts; the peak,
