@@ -80,7 +80,7 @@ Three properties this shape buys, and they are the point of the project:
 - **Production is untouched by all of it.** It still builds from source on
   the Mac and moves only when a person runs `deploy/start.sh`.
 
-## Status — phases 1–5 done (2026-09-21 / 23)
+## Status — phases 1–6 done (2026-09-21 / 23)
 
 Running on the current mini in a **6 GiB Lima VM** (DESIGN.md §5 "Phase A")
 ahead of the new machine; `docs/OPERATIONS.md` has the rebuild for when the
@@ -101,3 +101,8 @@ Prometheus/Grafana/Loki, then the restore drill as a weekly CronJob.
 **Found by staging already** (`docs/OPERATIONS.md` → Follow-ups): opening a
 Lecture Notes lecture whose audio is gone breaks the page; rclone's shared
 Drive client_id retires in 2026 and production's backups use it.
+
+**Known gap:** the restore runs on first sync and when its own definition
+changes — not nightly — so staging's data ages between runs. Phase 9's
+CronJob is the fix; `docs/restore-drill.md` says what is and is not proven
+in the meantime.

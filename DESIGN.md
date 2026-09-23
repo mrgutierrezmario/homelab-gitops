@@ -5,10 +5,10 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **phase 5 done** (2026-09-23) — cluster and platform up on the
-current mini (Phase A, 6 GiB VM); all three apps in staging from restored
-nightly bundles, public over Funnel, and following `main` unattended.
-See `README.md`.
+Status: **phases 1–6 done** (2026-09-21 / 23) — cluster and platform up on
+the current mini (Phase A, 6 GiB VM); all three apps in staging from
+restored bundles, public over Funnel, following `main` unattended, and
+written up. Next is §8a, starting with Uptime Kuma. See `README.md`.
 
 ## 1. Why, in one paragraph
 
@@ -19,8 +19,13 @@ GitOps are the day-job skills, and a portfolio with three real, stateful,
 backed-up apps deployed via Argo CD says more than any hello-world cluster.
 Second, the practical one: today's Dependabot round (React 19, Vite 8,
 pydantic 2.13) was validated by hand-building a throwaway stack from a DB
-dump. A staging cluster that always runs *copies* of the apps from last
-night's backups makes that a `git push`.
+dump. A staging cluster that runs *copies* of the apps restored from the
+backups makes that a `git push`.
+
+*(As built, the restore runs on first sync and whenever the restore's own
+definition changes — not nightly. Phase 9's CronJob is what makes "last
+night's backups" literally true; `docs/restore-drill.md` is explicit about
+the gap.)*
 
 ## 2. What must not happen
 
@@ -159,7 +164,7 @@ homelab-gitops/
 | 3 — InsiderTrack (2 days) | chart with Postgres, restore Job from the nightly bundle, scrapers running against the copy, ingress with `/` and `/mcp` | the site at `insidertrack-staging` shows yesterday's data and this morning's scrape | **done 2026-09-21** — yesterday's data verified; the morning scrape is tomorrow's check |
 | 4 — Lecture Notes (2 days) | chart with Postgres + MinIO + restore, alembic initContainer, Whisper smoke test (one uploaded clip) | a recorded clip transcribes; History shows the restored lectures | **done 2026-09-21** — a live recording, not a clip |
 | 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human | **done 2026-09-23** — digest strategy on `:main`, git write-back into each `values-staging.yaml`. Both halves demonstrated: the bot's commits matched GHCR, and a later commit synced with no human refresh. The full chain end to end is the next Dependabot merge |
-| 6 — write-up (½ day) | README with the architecture diagram, `docs/OPERATIONS.md`, a restore-drill doc that replaces today's by-hand candidate test; LinkedIn About gets a fourth bullet | — | runbook exists and is kept current; diagram and drill doc pending |
+| 6 — write-up (½ day) | README with the architecture diagram, `docs/OPERATIONS.md`, a restore-drill doc that replaces today's by-hand candidate test; LinkedIn About gets a fourth bullet | — | **done 2026-09-23** — diagram in `README.md`, `docs/restore-drill.md` (including what it does *not* prove), runbook kept current as each fault was found. LinkedIn bullet is yours to post |
 | 7–12 | see §8a: Uptime Kuma, Prometheus/Grafana/Loki, restore-drill CronJob, self-hosted runner, second Ollama, registry cache | each on its own | |
 | later | prod cut-over per app; a second node | only if wanted | |
 
@@ -178,7 +183,7 @@ under `apps/platform/` — in this order:
 |---|---|---|---|
 | 7 — Uptime Kuma (1 day) | self-hosted uptime checks + status page for both public URLs, `/mcp/health`, and backup age; alerts to email/phone | replaces the free third-party pinger with something you own and can link from the READMEs | ~0.1 GB |
 | 8 — Observability (a weekend) | **Prometheus + Grafana + Loki**: the cluster, the staging apps, and — over Tailscale — the *production* stacks on the new mini. FastAPI gets `/metrics` (one library). One dashboard: request rates, scraper timings, Whisper lag, Ollama call durations, backup age. Loki makes "why did the scraper fail at 06:40" a query | today there is no metrics or log search at all; this is the thing listed next to Kubernetes in every job posting | ~1.5 GB |
-| 9 — Restore drill as a `CronJob` (1 day) | every Sunday: wipe staging's databases, restore from last night's bundles, run the smoke checks, post the result to Uptime Kuma / email | the monthly runbook item done automatically, forever; a backup that is restored weekly is a backup | — |
+| 9 — Restore drill as a `CronJob` (1 day) | every Sunday: wipe staging's databases, restore from last night's bundles, run the smoke checks, post the result to Uptime Kuma / email | the monthly runbook item done automatically, forever; a backup that is restored weekly is a backup. **Also closes a real gap: as built the restore does not re-run on a schedule, so staging's data ages** (`docs/restore-drill.md`) | — |
 | 10 — Self-hosted CI runner (a weekend) | GitHub Actions runner pods via the Actions Runner Controller; image builds happen here and push to GHCR; the "build candidate → deploy to staging → drill" pipeline lives on it | faster builds, no GitHub minutes, and ARC is a standard enterprise pattern | ~1 GB when busy |
 | 11 — Second Ollama (½ day) | native Ollama on the old mini as the *slow* model server: staging points at it, and overnight batch jobs (the daily brief) can use it so the new mini's GPU stays free for editing and lectures | the old mini's GPU is still a real GPU | ~5 GB while a model is loaded |
 | 12 — Registry pull-through cache (½ day) | `registry:2` mirror so staging pulls do not hit GHCR/Docker Hub every time | a component every real cluster has; makes rebuilds fast and offline-safe | ~0.2 GB |
