@@ -1,9 +1,11 @@
 ingress:
   host: insidertrack-staging
   funnel: true
-
 app:
   # The Mac that hosts the VM, from inside it (Lima's name for the host).
   # Ollama on the Mac must listen on all interfaces for this to work — see
   # the chart README.
   ollamaBaseUrl: http://host.lima.internal:11434
+image:
+  tag: main@sha256:f9ca560bb7b2227c7f861ef215d549517e0d01b23c8baf1b8320cba01e7da170
+  repository: ghcr.io/mrgutierrezmario/insidertrack
