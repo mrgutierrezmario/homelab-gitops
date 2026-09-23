@@ -184,6 +184,13 @@ A restore Job runs **once, no retries**: if it fails, read its log, fix,
 push. While a Job is running or retrying, the sync that created it is
 "Running" and later commits wait — that is why retries are off.
 
+It also runs only when its *own* definition changes. That needs
+`ApplyOutOfSyncOnly=true` on the Application: without it Argo re-applies
+every resource on every sync, and `Replace=true` on the Job turns each of
+those into a delete-and-recreate. Symptom (2026-09-23): a change to a CPU
+limit made Lecture Notes re-download the whole audio mirror and sit in
+`Running` for five minutes, blocking the next commit.
+
 If the Job fails: `describe job` shows which container; `fetch` failing
 is the rclone secret (token expired → re-seal per `secrets/README.md`) or
 Drive; `restore` failing is the dump or the swap (its log says which
