@@ -41,7 +41,7 @@ Today's or yesterday's date in the newest filename means it ran.
 | | |
 |---|---|
 | Covers | a backup that stopped running, an unreadable remote, an expired Drive token, an empty backup folder |
-| Threshold | 36 hours — one missed night is noise, two is a problem. `MAX_AGE_HOURS=48 mac/backup-age-check.sh` to change it |
+| Threshold | whole calendar days, not hours, so the answer does not move with the time of day you run it. Default 1: yesterday's backup is fine, the night before last is not. `MAX_AGE_DAYS=2 mac/backup-age-check.sh` to loosen it |
 | Does **not** cover | whether the bundle actually *restores*. That was the cluster's weekly restore drill (`docs/restore-drill.md`), and it is gone until the cluster is rebuilt |
 | Does **not** cover | itself. If this job stops running, nothing says so. Real dead-man cover needs something off this machine — which is what Uptime Kuma's push monitors did |
 

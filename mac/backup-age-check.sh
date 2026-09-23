@@ -16,7 +16,11 @@
 # Install it to run daily: see mac/README.md.
 set -uo pipefail
 
-MAX_AGE_HOURS="${MAX_AGE_HOURS:-36}"
+# Whole calendar days between today and the newest bundle's date. Days, not
+# hours, on purpose: the answer must not change with the time of day the
+# check happens to run. 1 = yesterday's backup is fine, the night before
+# last is not.
+MAX_AGE_DAYS="${MAX_AGE_DAYS:-1}"
 # Credentials come from InsiderTrack's deploy/.env — the same Gmail app
 # password backup.sh uses. Nothing new to store.
 ENV_FILE="${ENV_FILE:-$HOME/projects/insidertrack/deploy/.env}"
@@ -77,19 +81,27 @@ for entry in "${REMOTES[@]}"; do
     continue
   fi
   day=${latest#"$prefix"-}; day=${day%.tar.gz}
-  # BSD date (macOS): -j parses without setting the clock.
-  made=$(date -j -f "%Y-%m-%d" "$day" "+%s" 2>/dev/null)
-  if [ -z "$made" ]; then
+  # BSD date (macOS): -j parses without setting the clock. The time must be
+  # given explicitly — with "%Y-%m-%d" alone, BSD date fills the unspecified
+  # fields from *now*, so every bundle looks 0 days old (seen 2026-09-23).
+  made=$(date -j -f "%Y-%m-%d %H:%M:%S" "$day 00:00:00" "+%s" 2>/dev/null)
+  today=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date '+%Y-%m-%d') 00:00:00" "+%s" 2>/dev/null)
+  if [ -z "$made" ] || [ -z "$today" ]; then
     log "$remote: could not parse the date in $latest"
     problems+="$remote: could not parse the date in $latest."$'\n'
     continue
   fi
-  age=$(( ( $(date "+%s") - made ) / 3600 ))
-  if [ "$age" -gt "$MAX_AGE_HOURS" ]; then
-    log "$remote: STALE — $latest is ${age}h old (limit ${MAX_AGE_HOURS}h)"
-    problems+="$remote: newest backup is $latest, ${age}h old (limit ${MAX_AGE_HOURS}h)."$'\n'
+  days=$(( ( today - made ) / 86400 ))
+  case $days in
+    0) when="today" ;;
+    1) when="yesterday" ;;
+    *) when="$days days ago" ;;
+  esac
+  if [ "$days" -gt "$MAX_AGE_DAYS" ]; then
+    log "$remote: STALE — newest is $latest ($when)"
+    problems+="$remote: newest backup is $latest, made $when."$'\n'
   else
-    log "$remote: ok — $latest, ${age}h old"
+    log "$remote: ok — $latest ($when)"
   fi
 done
 
