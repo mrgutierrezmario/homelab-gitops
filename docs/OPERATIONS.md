@@ -88,6 +88,7 @@ fine while the count is small.
 | | |
 |---|---|
 | Is it up | `limactl list`; `kubectl get nodes`; the Argo UI |
+| Changing the VM's CPUs or memory | **editing `bootstrap/lima.yaml` does not touch an existing VM** — Lima copies that template once, at creation, to `~/.lima/k3s/lima.yaml`. Use `limactl stop k3s && limactl edit k3s --cpus N && limactl start k3s`, or delete and recreate. Learned the hard way 2026-09-23 |
 | Mac rebooted | Lima does not autostart. `limactl start k3s`; everything else comes back on its own (k3s is a systemd unit, Argo reconverges) |
 | VM out of memory | `limactl shell k3s -- free -m`; `kubectl top pods -A`. Under 6 GiB, Whisper in Lecture Notes is the only thing that pushes it — see DESIGN.md §5 |
 | Stop everything | `limactl stop k3s` — production is unaffected, it is not in the VM |

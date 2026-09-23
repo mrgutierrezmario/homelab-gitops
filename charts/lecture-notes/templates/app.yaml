@@ -42,7 +42,7 @@ metadata:
     # After the data services (0) and the restore (1).
     argocd.argoproj.io/sync-wave: "2"
 spec:
-  replicas: 1
+  replicas: {{ .Values.app.replicas }}
   # The cleanup loop and the model cache PVC: one pod at a time.
   strategy:
     type: Recreate
@@ -103,6 +103,8 @@ spec:
             - { name: OLLAMA_BASE_URL, value: {{ .Values.app.ollamaBaseUrl | quote }} }
             - { name: OLLAMA_MODEL, value: {{ .Values.app.ollamaModel | quote }} }
             - { name: WHISPER_MODEL, value: {{ .Values.app.whisperModel | quote }} }
+            # Caps CTranslate2's thread pool; see values.yaml.
+            - { name: OMP_NUM_THREADS, value: {{ .Values.app.whisperThreads | quote }} }
             - { name: AUDIO_RETENTION_DAYS, value: {{ .Values.app.audioRetentionDays | quote }} }
             - { name: REGISTRATION_OPEN, value: {{ .Values.app.registrationOpen | quote }} }
             - { name: PUBLIC_URL, value: {{ include "ln.publicUrl" . | quote }} }

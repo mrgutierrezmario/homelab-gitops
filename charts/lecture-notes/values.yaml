@@ -60,22 +60,28 @@ restore:
     - drive_files
 
 app:
+  # PARKED — see values-staging.yaml. 1 to run it.
+  replicas: 1
   ollamaBaseUrl: ""
   ollamaModel: llama3
   whisperModel: small
+  # The fix for 2026-09-23's outage, and it is not the CPU limit below.
+  # faster-whisper calls WhisperModel(device="cpu") with no `cpu_threads`,
+  # so CTranslate2 sizes its OpenMP pool from the cores it can *see* — the
+  # VM's, not the cgroup's. Threads then outnumber the quota: everything is
+  # runnable, nothing can run, and cgroup throttling freezes the lot at each
+  # period. Load average hit 63 on four cores with the disk idle.
+  # CTranslate2 4.7.1 honours OMP_NUM_THREADS, so this needs no app change.
+  # Keep it equal to the CPU limit below.
+  whisperThreads: "2"
   audioRetentionDays: "14"
   # A copy on a public URL must not take sign-ups.
   registrationOpen: "false"
   resources:
     # Whisper `small` needs ~2 GB while a chunk is being transcribed.
     requests: { cpu: 250m, memory: 512Mi }
-    # The CPU limit is about the *node*, not this pod. Transcription will use
-    # every core it is given; on a four-vCPU VM that starved the kubelet
-    # (node went NotReady) and Argo's repo-server (probes timed out) —
-    # 2026-09-23. Two cores leaves two for everything else, always.
-    # The cost is throttling: transcription is slower here than in
-    # production. That is the stated intent — staging Whisper is for smoke
-    # tests, not real time (DESIGN.md §3).
+    # The ceiling, paired with whisperThreads above — a quota without a
+    # matching thread cap is what caused the outage, not what prevented it.
     limits: { cpu: "2", memory: 3Gi }
   # Whisper / Hugging Face model downloads survive pod restarts.
   cacheStorage: 3Gi
