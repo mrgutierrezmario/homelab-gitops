@@ -2,6 +2,8 @@
 # and its Ingress routes /mcp here — the MCP publishes nothing of its own,
 # the way production's serve.json lays it out.
 insidertrackUrl: http://insidertrack:8003
-
 ingress:
   enabled: false
+image:
+  tag: main@sha256:8242e49fd4907bb3e073964bbe659a695a0ca2cef64ca3d2ed54c80be4bf5ee9
+  repository: ghcr.io/mrgutierrezmario/insidertrack-mcp
