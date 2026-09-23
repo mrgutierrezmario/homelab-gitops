@@ -1,0 +1,71 @@
+# What makes staging follow `main` (DESIGN.md phase 5).
+#
+# Each app's CI pushes `ghcr.io/…:main` on every merge. This watches those
+# three tags for a new digest and, when one appears, **commits the new
+# digest to this repo** — into the same `values-staging.yaml` a human would
+# edit. Argo then syncs it like any other commit. Nothing is changed on the
+# cluster that is not in git first.
+#
+# Why git write-back and not the simpler `argocd` method: that one patches
+# the live Application's spec, and the root app (app-of-apps, selfHeal on)
+# would revert the patch on its next reconcile. Git is also the honest
+# answer — the repo stays the source of truth, and `git log` is the
+# deployment history.
+apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: staging
+  namespace: argocd
+spec:
+  writeBackConfig:
+    # The SSH deploy key in secrets/image-updater/ (write access to this
+    # repo only). The repository is named explicitly because the
+    # Applications read over HTTPS anonymously — pushing needs SSH.
+    method: "git:secret:argocd/image-updater-git"
+    gitConfig:
+      repository: git@github.com:mrgutierrezmario/homelab-gitops.git
+      branch: main
+
+  commonUpdateSettings:
+    # Follow one mutable tag and react to a new push to it, rather than
+    # looking for higher version numbers. `main` is what CI moves; releases
+    # are pinned by hand in production, not here.
+    updateStrategy: digest
+
+  applicationRefs:
+    - namePattern: insidertrack-staging
+      writeBackConfig:
+        gitConfig:
+          writeBackTarget: "helmvalues:/charts/insidertrack/values-staging.yaml"
+      images:
+        - alias: app
+          imageName: ghcr.io/mrgutierrezmario/insidertrack:main
+          manifestTargets:
+            helm:
+              # This chart's value names (the default would be image.name).
+              name: image.repository
+              tag: image.tag
+
+    - namePattern: insidertrack-mcp-staging
+      writeBackConfig:
+        gitConfig:
+          writeBackTarget: "helmvalues:/charts/insidertrack-mcp/values-staging.yaml"
+      images:
+        - alias: mcp
+          imageName: ghcr.io/mrgutierrezmario/insidertrack-mcp:main
+          manifestTargets:
+            helm:
+              name: image.repository
+              tag: image.tag
+
+    - namePattern: lecture-notes-staging
+      writeBackConfig:
+        gitConfig:
+          writeBackTarget: "helmvalues:/charts/lecture-notes/values-staging.yaml"
+      images:
+        - alias: app
+          imageName: ghcr.io/mrgutierrezmario/lecture-note-app:main
+          manifestTargets:
+            helm:
+              name: image.repository
+              tag: image.tag

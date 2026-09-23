@@ -12,7 +12,8 @@ secrets/
 ├── tailscale/            # operator-oauth — read by apps/platform/tailscale-operator.yaml
 ├── insidertrack-mcp/     # mcp-tokens — read by apps/staging/insidertrack-mcp.yaml
 ├── insidertrack/         # insidertrack-db, insidertrack-app, insidertrack-rclone — apps/staging/insidertrack.yaml
-└── lecture-notes/        # lecture-notes-db, -minio, -app, -rclone — apps/staging/lecture-notes.yaml
+├── lecture-notes/        # lecture-notes-db, -minio, -app, -rclone — apps/staging/lecture-notes.yaml
+└── image-updater/        # image-updater-git — the SSH deploy key it pushes with
 ```
 
 ## Sealing a secret
@@ -103,6 +104,37 @@ awk '/^\[/{p=($0=="[gdrive]"||$0=="[lecture-backup]")} p' "$(rclone config file 
   | kubeseal --cert secrets/pub-cert.pem --format yaml \
   > secrets/lecture-notes/lecture-notes-rclone.yaml
 ```
+
+### The Image Updater deploy key (phase 5)
+
+Image Updater commits the new image digest back to **this** repo, so it
+needs write access to it and nothing else. A repository deploy key is
+exactly that scope — narrower than a personal access token, and it does
+not expire.
+
+The private half is already sealed in `secrets/image-updater/`; it was
+generated and encrypted without ever being written to disk in the clear.
+The public half goes in GitHub → this repo → Settings → Deploy keys → Add
+deploy key → **Allow write access**:
+
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFfRtLHiCyKceIfI1PE3PSG/S8YgzaucRefpdGu14RVq argocd-image-updater@homelab-gitops
+```
+
+To rotate it: delete the key in GitHub, then
+
+```sh
+ssh-keygen -t ed25519 -N '' -C 'argocd-image-updater@homelab-gitops' -f /tmp/iu_key
+kubectl create secret generic image-updater-git -n argocd \
+  --from-file=sshPrivateKey=/tmp/iu_key --dry-run=client -o yaml \
+  | kubeseal --cert secrets/pub-cert.pem --format yaml \
+  > secrets/image-updater/image-updater-git.yaml
+cat /tmp/iu_key.pub     # add this one in GitHub, with write access
+shred -u /tmp/iu_key
+```
+
+Host-key verification uses Argo CD's own `argocd-ssh-known-hosts-cm`,
+which the chart mounts; github.com is in it by default.
 
 ## The Tailscale OAuth client (first secret, phase 1)
 

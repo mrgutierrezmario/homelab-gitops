@@ -1,7 +1,6 @@
 # Argo CD Image Updater: moves staging to every new image CI pushes to GHCR
-# (DESIGN.md §3 "Image updates"). Which tags to follow is set per chart with
-# annotations on the staging Applications, from phase 5 on. Until then it
-# runs and does nothing.
+# (DESIGN.md §3 "Image updates"). Three sources: the chart, the ImageUpdater
+# resource that says what to watch, and the SSH key it pushes with.
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
@@ -11,25 +10,41 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 spec:
   project: default
-  source:
-    repoURL: https://argoproj.github.io/argo-helm
-    chart: argocd-image-updater
-    targetRevision: 1.3.1
-    helm:
-      releaseName: image-updater
-      valuesObject:
-        # Runs in the argocd namespace and reads Applications through the
-        # Kubernetes API; no Argo server address to configure.
-        config:
-          registries:
-            - name: GitHub Container Registry
-              prefix: ghcr.io
-              api_url: https://ghcr.io
-              # All three images are public; no pull secret.
-              default: true
-        resources:
-          requests: { cpu: 25m, memory: 64Mi }
-          limits: { memory: 128Mi }
+  sources:
+    - repoURL: https://argoproj.github.io/argo-helm
+      chart: argocd-image-updater
+      targetRevision: 1.3.1
+      helm:
+        releaseName: image-updater
+        valuesObject:
+          config:
+            registries:
+              - name: GitHub Container Registry
+                prefix: ghcr.io
+                api_url: https://ghcr.io
+                # All three images are public; no pull secret.
+            # These keys are literally dotted — the chart writes each one
+            # into the ConfigMap as-is. A nested `git:` map renders as an
+            # empty template and the setting is silently lost.
+            git.user: argocd-image-updater
+            git.email: image-updater@users.noreply.github.com
+            git.commit-message-template: |
+              staging: {{ .AppName }} follows main
+              {{ range .AppChanges }}
+              {{ .Image }}
+                {{ .OldTag }} -> {{ .NewTag }}
+              {{ end }}
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { memory: 128Mi }
+    # What to watch and where to write it back.
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: platform/image-updater
+    # image-updater-git: the SSH deploy key, sealed.
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: secrets/image-updater
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -37,3 +52,6 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      # The chart ships the ImageUpdater CRD as a template.
+      - ServerSideApply=true

@@ -5,9 +5,10 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **phase 4 done** (2026-09-21) — cluster and platform up on the
+Status: **phase 5 done** (2026-09-23) — cluster and platform up on the
 current mini (Phase A, 6 GiB VM); all three apps in staging from restored
-nightly bundles, public over Funnel. See `README.md`.
+nightly bundles, public over Funnel, and following `main` on their own.
+See `README.md`.
 
 ## 1. Why, in one paragraph
 
@@ -46,7 +47,7 @@ night's backups makes that a `git push`.
 | GitOps | **Argo CD**, app-of-apps, one `Application` per project per environment | The industry default; a UI that shows drift; sync waves handle "database before app before MCP" |
 | Ingress | **Tailscale Kubernetes operator** (`Ingress` class `tailscale`, Funnel annotation) | Same mechanism production uses, so the staging URLs are `…-staging.<tailnet>.ts.net` with real certs, no port-forwarding, no DNS to buy |
 | Images | Built by each project's existing CI, pushed to **GHCR** (`ghcr.io/mrgutierrezmario/<project>:<sha>` + `:vX.Y.Z`) | Today images are built on the mini from source. Kubernetes needs a registry; GHCR is free for public repos and CI already builds the image |
-| Image updates | **Argo CD Image Updater** for staging (track `main` tags); tags pinned by hand in `values-prod.yaml` | Staging follows `main` automatically — that is the staging-for-Dependabot payoff; prod stays a deliberate edit |
+| Image updates | **Argo CD Image Updater** for staging: `digest` strategy on the mutable `:main` tag, **written back to git** (`helmvalues:` → each chart's `values-staging.yaml`); tags pinned by hand for production | Staging follows `main` automatically — the staging-for-Dependabot payoff. Git write-back, not the `argocd` method: that one patches the live Application, which the app-of-apps root would revert on its next reconcile (selfHeal). It also keeps the repo the source of truth, so `git log` *is* the deployment history |
 | Secrets | **Sealed Secrets** (Bitnami) committed to this repo | Simplest GitOps-native option; no external vault to run. The sealing key is backed up like any other secret |
 | State | `StatefulSet` + PVC for Postgres and MinIO via k3s's local-path provisioner; **restore job** on first start from the latest backup bundle | Production backups already exist; the cluster's data is always a restored copy. No PV backup of the cluster itself is needed while it is staging |
 | Ollama / Whisper | Staging **points at the Mac's native Ollama** via `host.lima.internal:11434` (the VM's host — the same Mac in Phase A and once the old mini is dedicated); Whisper runs in the pod on CPU | Do not run a second LLM server; Whisper in staging is for smoke tests, not real-time |
@@ -120,6 +121,8 @@ homelab-gitops/
 │   │   └── lecture-notes.yaml
 │   └── platform/           # argocd, sealed-secrets, tailscale-operator, image-updater
 │       └── values/         # values files shared with bootstrap (argocd.yaml)
+├── platform/               # config for platform components (not Applications,
+│   └── image-updater/      #   not charts): the ImageUpdater resource
 ├── charts/
 │   ├── insidertrack/       # Chart.yaml, templates/, values.yaml, values-staging.yaml
 │   ├── insidertrack-mcp/
@@ -152,7 +155,7 @@ homelab-gitops/
 | 2 — InsiderTrack MCP (½ day) | first chart — stateless, one Deployment, easiest win; points at production InsiderTrack read-only over Tailscale for now | staging MCP answers from claude.ai with its own token | **done 2026-09-21** — pointed at production's public URL for a day, then at the staging copy in phase 3 |
 | 3 — InsiderTrack (2 days) | chart with Postgres, restore Job from the nightly bundle, scrapers running against the copy, ingress with `/` and `/mcp` | the site at `insidertrack-staging` shows yesterday's data and this morning's scrape | **done 2026-09-21** — yesterday's data verified; the morning scrape is tomorrow's check |
 | 4 — Lecture Notes (2 days) | chart with Postgres + MinIO + restore, alembic initContainer, Whisper smoke test (one uploaded clip) | a recorded clip transcribes; History shows the restored lectures | **done 2026-09-21** — a live recording, not a clip |
-| 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human | half: all three CIs push to GHCR; Image Updater installed, not yet configured |
+| 5 — GitOps loop (1 day) | GHCR pushes from each CI; Image Updater moves staging on every `main` merge | a Dependabot merge shows up in staging without a human | **done 2026-09-23** — digest strategy on `:main`, git write-back into each `values-staging.yaml` |
 | 6 — write-up (½ day) | README with the architecture diagram, `docs/OPERATIONS.md`, a restore-drill doc that replaces today's by-hand candidate test; LinkedIn About gets a fourth bullet | — | runbook exists and is kept current; diagram and drill doc pending |
 | 7–12 | see §8a: Uptime Kuma, Prometheus/Grafana/Loki, restore-drill CronJob, self-hosted runner, second Ollama, registry cache | each on its own | |
 | later | prod cut-over per app; a second node | only if wanted | |

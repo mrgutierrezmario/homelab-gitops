@@ -107,6 +107,38 @@ by a public repo's workflow comes out public (verified with the MCP,
 check github.com/mrgutierrezmario?tab=packages → Package settings →
 visibility.
 
+## The staging update loop (phase 5)
+
+```
+merge to main in an app repo
+  → its CI builds and pushes ghcr.io/…:main (amd64 + arm64)
+  → Image Updater sees a new digest behind that tag (polls every 2 min)
+  → it commits the digest to charts/<app>/values-staging.yaml in THIS repo
+  → Argo syncs the commit like any other → new pod
+```
+
+Nothing reaches the cluster that is not in git first, and `git log
+charts/*/values-staging.yaml` is the deployment history. What it writes
+looks like:
+
+```yaml
+image:
+  repository: ghcr.io/mrgutierrezmario/insidertrack
+  tag: main@sha256:…
+```
+
+| | |
+|---|---|
+| Is it working | `kubectl -n argocd logs deploy/image-updater --tail=50`; or just `git log --oneline -- charts` |
+| It is not updating | the image must be in the Application's *rendered* template for Image Updater to consider it; check the alias in `platform/image-updater/imageupdater.yaml` matches `image.repository`/`image.tag` in that chart |
+| Write-back fails with a permission error | the deploy key lost write access, or was removed in GitHub — `secrets/README.md` |
+| Pause it for one app | delete that `applicationRefs` entry in `platform/image-updater/imageupdater.yaml`, commit. The app then stays on whatever digest is in its values file |
+| Pause it entirely | `kubectl -n argocd scale deploy/image-updater --replicas=0` — but Argo's selfHeal puts it back; the durable way is the file above |
+| Go back to a known-good image | `git revert` the write-back commit. The digest in git is what runs |
+
+Production is untouched by all of this: it builds from source on the Mac
+(`deploy/start.sh`) and only moves when a person says so.
+
 ## Follow-ups the cluster surfaced
 
 - **Lecture Notes: opening a lecture whose audio is gone breaks the page**

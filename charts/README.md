@@ -21,7 +21,10 @@ Patterns the three share (read one chart's README for the details):
   in.** Production's `.env` and Tailscale identity in the bundle are
   deleted unread.
 - **Images from GHCR** `:main`, `pullPolicy: Always`, built by each repo's
-  CI for amd64 and arm64 (the VM is arm64).
+  CI for amd64 and arm64 (the VM is arm64). From phase 5 the `image.tag` in
+  each `values-staging.yaml` is **written by Image Updater**, as
+  `main@sha256:…` — edit it by hand only to pin something deliberately, and
+  expect the next push to `main` to move it back.
 
 Each chart: `Chart.yaml`, `templates/`, `values.yaml` (defaults that are
 true everywhere), `values-staging.yaml` (the `…-staging` hostname, the

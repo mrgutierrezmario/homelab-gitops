@@ -19,7 +19,7 @@ Staging runs *copies* restored from last night's backups; every merge to
 | `charts/` | one Helm chart per app |
 | `secrets/` | SealedSecrets only |
 
-## Status — 2026-09-21, phases 1–4 done in one evening
+## Status — phases 1–5 done (2026-09-21 / 23)
 
 Running on the current mini in a **6 GiB Lima VM** (DESIGN.md §5 "Phase A")
 ahead of the new machine; `docs/OPERATIONS.md` has the rebuild for when the
@@ -32,10 +32,11 @@ old mini is dedicated.
 | InsiderTrack MCP | same host, `/mcp`; answers claude.ai with its own token |
 | Lecture Notes | `https://lecture-notes-staging.tail3659a6.ts.net` — 3 users, 201 lectures, 2,872 transcript segments, 2,998 audio chunks restored; migrations in an initContainer; a live recording transcribed by Whisper on CPU |
 | Images | each repo's CI pushes amd64 + arm64 to GHCR on every merge to `main` |
+| Update loop | Image Updater watches those three tags and **commits the new digest to this repo**; Argo syncs the commit. A Dependabot merge reaches staging with nobody touching anything, and `git log` is the deployment history |
 
-**Next:** phase 5 — Argo CD Image Updater follows `:main`, so a Dependabot
-merge lands in staging with nobody touching anything. Then the write-up
-(phase 6) and the platform extras (§8a).
+**Next:** phase 6, the write-up (architecture diagram, restore-drill doc),
+then the platform extras (DESIGN §8a): Uptime Kuma, Prometheus/Grafana/Loki,
+the restore drill as a weekly CronJob.
 
 **Found by staging already** (`docs/OPERATIONS.md` → Follow-ups): opening a
 Lecture Notes lecture whose audio is gone breaks the page; rclone's shared
