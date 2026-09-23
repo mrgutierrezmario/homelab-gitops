@@ -23,6 +23,7 @@ recreate it from. Every monitor: interval 60 s, retries 2.
 | Name | Type | URL / setting |
 |---|---|---|
 | InsiderTrack (prod) | HTTP(s) – Keyword | `https://mgnts-stock-tracker.tail3659a6.ts.net/health`, keyword `"db":true` |
+| InsiderTrack data sources (prod) | HTTP(s) – Keyword | same URL, keyword `"status":"ok"` — this one goes red if a scraper starts failing, which is how a rate-limit from sharing the house IP with staging would show up (`docs/OPERATIONS.md`) |
 | InsiderTrack MCP (prod) | HTTP(s) – Keyword | `https://mgnts-stock-tracker.tail3659a6.ts.net/mcp/health`, keyword `"status":"ok"` |
 | Lecture Notes (prod) | HTTP(s) – Keyword | `https://mgnts-note-app.tail3659a6.ts.net/health`, keyword `"storage":"ok"` |
 | InsiderTrack (staging) | HTTP(s) – Keyword | `https://insidertrack-staging.tail3659a6.ts.net/health`, keyword `"db":true` |

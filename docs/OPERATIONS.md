@@ -197,6 +197,27 @@ Watch the node for an hour afterwards. If probes start timing out again
 `apps/platform/values/kube-prometheus-stack.yaml` are the dials, and
 turning it back off is removing the `automated` block again.
 
+## What staging touches in production
+
+Audited 2026-09-23. Staging is meant to be unable to hurt production; this
+is the list of places the two actually meet, so the claim stays checkable.
+
+| Path | Verdict |
+|---|---|
+| Staging MCP → InsiderTrack | Points at `http://insidertrack:8003`, the staging copy. It briefly pointed at production's public URL during phase 2 and no longer does |
+| Restore + backup-age Jobs → Google Drive | Read-only calls (`rclone lsf`, `rclone copyto`) — but with production's own rclone credentials, which *can* write. A bug in those scripts could damage the backups. Drive keeps 30 days of versions, and a read-only Drive remote would remove the risk entirely if it ever feels too close |
+| Uptime Kuma → production URLs | One `GET /health` a minute per monitor. Negligible, and the point |
+| Outbound email from staging | Off twice over: `MAIL_USERNAME` is empty in the chart, and the restore deletes the saved mail credentials from `app_settings` |
+| Paid AI keys | Deleted from the restored copy; provider pinned to Ollama |
+| Ollama | Staging would share the Mac's single native Ollama with production. Not reachable today (it listens on localhost), so staging falls back to heuristics. **Exposing Ollama to the network makes them compete** — that is what DESIGN.md phase 11's second Ollama is for |
+| **Scrapers → SEC / Senate / House** | **The one to watch.** Staging runs the same `CronTrigger` times as production (06:30, 07:00, 08:00, 12:00, 18:00 ET) from the same home IP, so those sources see two clients at the same minute. SEC's fair-access limit is 10 req/s and they block by IP. Volumes are small enough that it has been fine so far — but if production's Data sources page starts showing `consecutive_failures`, this is the first suspect, and an offset schedule in staging is the fix |
+
+The last row is deliberate, not an oversight: DESIGN.md §4 runs the scrapers
+in staging because that is what a dependency bump most often breaks. It is
+a watched trade, not a free one — and now that Uptime Kuma exists, a keyword
+monitor on production's `/health` for `"status":"ok"` catches it, because
+that endpoint reports data-source failures.
+
 ## Follow-ups the cluster surfaced
 
 - **Lecture Notes: opening a lecture whose audio is gone breaks the page**
