@@ -1,8 +1,57 @@
+{{/* The steps, shared by the seed Job and the weekly CronJob. */}}
+{{- define "it.restoreSteps" -}}
+- name: fetch
+  image: {{ .Values.restore.rcloneImage }}
+  command: ["/bin/sh", "/scripts/fetch.sh"]
+  env:
+    - name: RCLONE_REMOTE
+      value: {{ .Values.restore.rcloneRemote | quote }}
+    - name: RCLONE_CONFIG
+      value: /config/rclone.conf
+  volumeMounts:
+    - { name: scripts, mountPath: /scripts }
+    - { name: work, mountPath: /work }
+    - { name: rclone, mountPath: /config, readOnly: true }
+- name: restore-db
+  image: {{ .Values.postgres.image }}
+  command: ["/bin/bash", "/scripts/restore-db.sh"]
+  env:
+    - name: PGHOST
+      value: {{ include "it.postgresName" . }}
+    - name: PGUSER
+      value: {{ .Values.postgres.user }}
+    - name: DB
+      value: {{ .Values.postgres.database }}
+    - name: PGPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: {{ .Values.secrets.db }}
+          key: DB_PASSWORD
+  volumeMounts:
+    - { name: scripts, mountPath: /scripts }
+    - { name: work, mountPath: /work }
+{{- end }}
+
+{{- define "it.restoreVolumes" -}}
+- name: scripts
+  configMap:
+    name: {{ include "it.name" . }}-restore
+- name: work
+  emptyDir:
+    sizeLimit: 4Gi
+- name: rclone
+  secret:
+    secretName: {{ .Values.secrets.rclone }}
+{{- end }}
+
 {{- if .Values.restore.enabled }}
-# Seeds the database from the newest bundle in the off-site backup. Runs once
-# per sync of its spec; to run it again, delete the Job — Argo's selfHeal
-# recreates it (docs/OPERATIONS.md). Argo replaces rather than patches it,
-# since Job specs are immutable.
+# Restoring the newest off-site bundle into staging, two ways from one set of
+# steps (docs/restore-drill.md):
+#
+#   Job      seeds the database once, before the app starts (sync wave 1).
+#   CronJob  does it again every week, then smoke-tests the result — so the
+#            data tracks production instead of ageing, and a backup that
+#            stopped restoring is noticed without anyone running anything.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -21,7 +70,7 @@ data:
     echo "[restore] fetching $latest"
     rclone copyto "$remote/$latest" /work/bundle.tar.gz --stats-one-line -q
     echo "$latest" > /work/bundle.name
-  restore.sh: |
+  restore-db.sh: |
     #!/bin/bash
     # Restore into <db>_restore, scrub production-only settings, then swap it
     # in under the real name. The app reconnects to the new database.
@@ -69,6 +118,33 @@ data:
       -c "DROP DATABASE IF EXISTS ${DB}_old WITH (FORCE);"
     rm -rf /work/*
     log "done"
+  smoke.sh: |
+    #!/bin/sh
+    # Weekly drill only: the restore said it worked — now prove the stack can
+    # actually serve it. A backup that restores into something the app cannot
+    # read has not really restored.
+    set -eu
+    check() {
+      name=$1; url=$2; want=$3; body=""; i=0
+      while [ $i -lt 30 ]; do
+        body=$(wget -qO- -T 10 "$url" 2>/dev/null) || body=""
+        if [ -n "$body" ]; then break; fi
+        i=$((i + 1)); sleep 5
+      done
+      if [ -z "$body" ]; then echo "[drill] $name never answered at $url"; exit 1; fi
+      case "$body" in
+        *"$want"*) echo "[drill] $name ok" ;;
+        *) echo "[drill] $name unhealthy: $body"; exit 1 ;;
+      esac
+    }
+    check app "http://$APP_HOST:8003/health" '"db":true'
+    check mcp "http://$MCP_HOST:8100/mcp/health" '"status":"ok"'
+    # Optional heartbeat for Uptime Kuma (DESIGN.md phase 7). Never fails the
+    # drill: the drill's own result is the exit code.
+    if [ -n "${PUSH_URL:-}" ]; then
+      wget -qO- -T 10 "$PUSH_URL" >/dev/null 2>&1 || echo "[drill] push failed (ignored)"
+    fi
+    echo "[drill] weekly restore drill passed"
 ---
 apiVersion: batch/v1
 kind: Job
@@ -98,45 +174,58 @@ spec:
     spec:
       restartPolicy: Never
       initContainers:
-        - name: fetch
-          image: {{ .Values.restore.rcloneImage }}
-          command: ["/bin/sh", "/scripts/fetch.sh"]
-          env:
-            - name: RCLONE_REMOTE
-              value: {{ .Values.restore.rcloneRemote | quote }}
-            - name: RCLONE_CONFIG
-              value: /config/rclone.conf
-          volumeMounts:
-            - { name: scripts, mountPath: /scripts }
-            - { name: work, mountPath: /work }
-            - { name: rclone, mountPath: /config, readOnly: true }
+        {{- include "it.restoreSteps" . | nindent 8 }}
       containers:
-        - name: restore
-          image: {{ .Values.postgres.image }}
-          command: ["/bin/bash", "/scripts/restore.sh"]
-          env:
-            - name: PGHOST
-              value: {{ include "it.postgresName" . }}
-            - name: PGUSER
-              value: {{ .Values.postgres.user }}
-            - name: DB
-              value: {{ .Values.postgres.database }}
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secrets.db }}
-                  key: DB_PASSWORD
-          volumeMounts:
-            - { name: scripts, mountPath: /scripts }
-            - { name: work, mountPath: /work }
+        # The work is done by the steps above; this is the Job's exit code.
+        # No smoke check here: the app does not exist yet (it is wave 2).
+        - name: done
+          image: busybox:stable
+          command: ["sh", "-c", "echo '[restore] seeded'"]
       volumes:
-        - name: scripts
-          configMap:
-            name: {{ include "it.name" . }}-restore
-        - name: work
-          emptyDir:
-            sizeLimit: 4Gi
-        - name: rclone
-          secret:
-            secretName: {{ .Values.secrets.rclone }}
+        {{- include "it.restoreVolumes" . | nindent 8 }}
+{{- if .Values.restore.schedule }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "it.name" . }}-restore-drill
+  labels:
+    {{- include "it.labels" . | nindent 4 }}
+    app.kubernetes.io/component: restore-drill
+spec:
+  schedule: {{ .Values.restore.schedule | quote }}
+  # Never two at once, and never a catch-up storm after the VM was off.
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            {{- include "it.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: restore-drill
+        spec:
+          restartPolicy: Never
+          initContainers:
+            {{- include "it.restoreSteps" . | nindent 12 }}
+          containers:
+            - name: smoke
+              image: busybox:stable
+              command: ["sh", "/scripts/smoke.sh"]
+              env:
+                - name: APP_HOST
+                  value: {{ include "it.name" . }}
+                - name: MCP_HOST
+                  value: {{ .Values.ingress.mcpService | default "insidertrack-mcp" }}
+                - name: PUSH_URL
+                  value: {{ .Values.restore.pushUrl | quote }}
+              volumeMounts:
+                - { name: scripts, mountPath: /scripts }
+          volumes:
+            {{- include "it.restoreVolumes" . | nindent 12 }}
+{{- end }}
 {{- end }}

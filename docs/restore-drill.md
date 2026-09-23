@@ -102,15 +102,42 @@ Worth being blunt, because it is easy to feel covered and not be:
   drill as a weekly `CronJob` that wipes staging, restores, runs the
   smoke checks and reports.
 
-## Frequency, honestly
+## The weekly drill (phase 9)
 
-Today the Job runs when its definition changes — which since 2026-09-23 is
-*only* when the restore itself changes (`ApplyOutOfSyncOnly=true`, see
-`docs/OPERATIONS.md`). That is correct for not wasting five minutes on
-every image bump, but it means **the restore is not re-run nightly**. The
-data in staging ages until someone deletes the Job or a chart change
-triggers it.
+The seed Job runs once, before the app starts. A **CronJob** then repeats
+the same steps every **Sunday 13:00 UTC** — after the 03:00 local backup in
+any US timezone — and adds a step the seed Job cannot do, because at that
+point the app does not exist yet:
 
-Phase 9 fixes this properly: a weekly `CronJob` doing the wipe-and-restore
-on a schedule, reporting to Uptime Kuma. Until then, deleting the two Jobs
-every so often — say when you would have run the old script — is the drill.
+```
+fetch → restore-db → (bucket → import-audio) → smoke
+```
+
+`smoke` asks the running app whether it can actually serve what was just
+restored: `"db":true` from InsiderTrack, `"database":"ok"` **and**
+`"storage":"ok"` from Lecture Notes, plus the MCP's own `/mcp/health`. A
+bundle that restores into something the app cannot read is not a restore,
+and this is what catches that.
+
+```sh
+kubectl -n insidertrack-staging get cronjob
+kubectl -n insidertrack-staging logs -l app.kubernetes.io/component=restore-drill --tail=50
+kubectl create job --from=cronjob/insidertrack-restore-drill drill-now -n insidertrack-staging   # run one now
+```
+
+`concurrencyPolicy: Forbid` and `startingDeadlineSeconds: 3600` mean a VM
+that was off over the weekend produces no catch-up storm — it simply misses
+that week. `backoffLimit: 0`: one attempt, then the failure stands where it
+can be read.
+
+The drill hits `restore.pushUrl` when it passes, which is empty today and
+becomes an Uptime Kuma push monitor in phase 7 — at which point *not*
+running becomes visible too, which is the half a CronJob alone cannot give
+you.
+
+### What the schedule costs
+
+Lecture Notes re-fetches the whole audio mirror each run (fresh `emptyDir`,
+no cache) — a few GB from Drive and about five minutes. Weekly is a
+deliberate trade against nightly for that reason. Set
+`restore.schedule: ""` in a chart's values to turn its drill off.

@@ -102,7 +102,7 @@ Prometheus/Grafana/Loki, then the restore drill as a weekly CronJob.
 Lecture Notes lecture whose audio is gone breaks the page; rclone's shared
 Drive client_id retires in 2026 and production's backups use it.
 
-**Known gap:** the restore runs on first sync and when its own definition
-changes — not nightly — so staging's data ages between runs. Phase 9's
-CronJob is the fix; `docs/restore-drill.md` says what is and is not proven
-in the meantime.
+Since phase 9 a **weekly CronJob** re-restores both apps from the newest
+bundle and smoke-tests the result, so the data tracks production instead of
+ageing, and a backup that stopped restoring gets noticed without anyone
+running anything (`docs/restore-drill.md`).

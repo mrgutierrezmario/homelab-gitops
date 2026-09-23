@@ -1,7 +1,79 @@
+{{/* The steps, shared by the seed Job and the weekly CronJob. */}}
+{{- define "ln.restoreSteps" -}}
+- name: fetch
+  image: {{ .Values.restore.rcloneImage }}
+  command: ["/bin/sh", "/scripts/fetch.sh"]
+  env:
+    - { name: RCLONE_REMOTE, value: {{ .Values.restore.rcloneRemote | quote }} }
+    - { name: RCLONE_CONFIG, value: /config/rclone.conf }
+  volumeMounts:
+    - { name: scripts, mountPath: /scripts }
+    - { name: work, mountPath: /work }
+    - { name: rclone, mountPath: /config, readOnly: true }
+- name: restore-db
+  image: {{ .Values.postgres.image }}
+  command: ["/bin/bash", "/scripts/restore-db.sh"]
+  env:
+    - { name: PGHOST, value: {{ include "ln.postgresName" . }} }
+    - { name: PGUSER, value: {{ .Values.postgres.user }} }
+    - { name: DB, value: {{ .Values.postgres.database }} }
+    - name: PGPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: {{ .Values.secrets.db }}
+          key: POSTGRES_PASSWORD
+  volumeMounts:
+    - { name: scripts, mountPath: /scripts }
+    - { name: work, mountPath: /work }
+- name: bucket
+  image: {{ .Values.minio.mcImage }}
+  command: ["/bin/sh", "/scripts/bucket.sh"]
+  env:
+    - { name: MINIO_HOST, value: {{ include "ln.minioName" . }} }
+    - { name: BUCKET, value: {{ .Values.minio.bucket }} }
+  envFrom:
+    - secretRef:
+        name: {{ .Values.secrets.minio }}
+  volumeMounts:
+    - { name: scripts, mountPath: /scripts }
+{{- if .Values.restore.audio }}
+- name: import-audio
+  image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+  command: ["/bin/sh", "/scripts/import-audio.sh"]
+  env:
+    - { name: S3_ENDPOINT_URL, value: "http://{{ include "ln.minioName" . }}:9000" }
+    - { name: S3_BUCKET, value: {{ .Values.minio.bucket }} }
+    - name: S3_ACCESS_KEY
+      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_USER } }
+    - name: S3_SECRET_KEY
+      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_PASSWORD } }
+  volumeMounts:
+    - { name: scripts, mountPath: /scripts }
+    - { name: work, mountPath: /work }
+{{- end }}
+{{- end }}
+
+{{- define "ln.restoreVolumes" -}}
+- name: scripts
+  configMap:
+    name: {{ include "ln.name" . }}-restore
+- name: work
+  emptyDir:
+    sizeLimit: {{ ternary "8Gi" "2Gi" .Values.restore.audio }}
+- name: rclone
+  secret:
+    secretName: {{ .Values.secrets.rclone }}
+{{- end }}
+
 {{- if .Values.restore.enabled }}
-# Seeds the database (and, optionally, the audio bucket) from the newest
-# off-site bundle, and creates the bucket the app expects. Steps run as
-# initContainers so they are strictly sequential. Re-run: delete the Job.
+# Restoring the newest off-site bundle into staging, two ways from one set of
+# steps (docs/restore-drill.md):
+#
+#   Job      seeds the database, the bucket and (optionally) the audio once,
+#            before the app starts (sync wave 1).
+#   CronJob  does it again every week and smoke-tests the result.
+#
+# Steps run as initContainers so they are strictly sequential.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -83,6 +155,30 @@ data:
     tar -C /work/audio -cf - . | python -m storage.audio_backup import
     rm -rf /work/audio
     echo "[restore] audio done"
+  smoke.sh: |
+    #!/bin/sh
+    # Weekly drill only: the restore said it worked — now prove the app can
+    # serve it. /health reports the database and object storage separately,
+    # so both are checked.
+    set -eu
+    body=""; i=0
+    while [ $i -lt 60 ]; do
+      body=$(wget -qO- -T 10 "http://$APP_HOST:8000/health" 2>/dev/null) || body=""
+      if [ -n "$body" ]; then break; fi
+      i=$((i + 1)); sleep 5
+    done
+    if [ -z "$body" ]; then echo "[drill] app never answered"; exit 1; fi
+    for want in '"database":"ok"' '"storage":"ok"'; do
+      case "$body" in
+        *"$want"*) ;;
+        *) echo "[drill] app unhealthy, missing $want: $body"; exit 1 ;;
+      esac
+    done
+    echo "[drill] app ok: $body"
+    if [ -n "${PUSH_URL:-}" ]; then
+      wget -qO- -T 10 "$PUSH_URL" >/dev/null 2>&1 || echo "[drill] push failed (ignored)"
+    fi
+    echo "[drill] weekly restore drill passed"
 ---
 apiVersion: batch/v1
 kind: Job
@@ -109,69 +205,55 @@ spec:
     spec:
       restartPolicy: Never
       initContainers:
-        - name: fetch
-          image: {{ .Values.restore.rcloneImage }}
-          command: ["/bin/sh", "/scripts/fetch.sh"]
-          env:
-            - { name: RCLONE_REMOTE, value: {{ .Values.restore.rcloneRemote | quote }} }
-            - { name: RCLONE_CONFIG, value: /config/rclone.conf }
-          volumeMounts:
-            - { name: scripts, mountPath: /scripts }
-            - { name: work, mountPath: /work }
-            - { name: rclone, mountPath: /config, readOnly: true }
-        - name: restore-db
-          image: {{ .Values.postgres.image }}
-          command: ["/bin/bash", "/scripts/restore-db.sh"]
-          env:
-            - { name: PGHOST, value: {{ include "ln.postgresName" . }} }
-            - { name: PGUSER, value: {{ .Values.postgres.user }} }
-            - { name: DB, value: {{ .Values.postgres.database }} }
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.secrets.db }}
-                  key: POSTGRES_PASSWORD
-          volumeMounts:
-            - { name: scripts, mountPath: /scripts }
-            - { name: work, mountPath: /work }
-        - name: bucket
-          image: {{ .Values.minio.mcImage }}
-          command: ["/bin/sh", "/scripts/bucket.sh"]
-          env:
-            - { name: MINIO_HOST, value: {{ include "ln.minioName" . }} }
-            - { name: BUCKET, value: {{ .Values.minio.bucket }} }
-          envFrom:
-            - secretRef:
-                name: {{ .Values.secrets.minio }}
-          volumeMounts:
-            - { name: scripts, mountPath: /scripts }
-        {{- if .Values.restore.audio }}
-        - name: import-audio
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          command: ["/bin/sh", "/scripts/import-audio.sh"]
-          env:
-            - { name: S3_ENDPOINT_URL, value: "http://{{ include "ln.minioName" . }}:9000" }
-            - { name: S3_BUCKET, value: {{ .Values.minio.bucket }} }
-            - name: S3_ACCESS_KEY
-              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_USER } }
-            - name: S3_SECRET_KEY
-              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_PASSWORD } }
-          volumeMounts:
-            - { name: scripts, mountPath: /scripts }
-            - { name: work, mountPath: /work }
-        {{- end }}
+        {{- include "ln.restoreSteps" . | nindent 8 }}
       containers:
         - name: done
           image: busybox:stable
           command: ["sh", "-c", "echo '[restore] done'"]
       volumes:
-        - name: scripts
-          configMap:
-            name: {{ include "ln.name" . }}-restore
-        - name: work
-          emptyDir:
-            sizeLimit: {{ ternary "8Gi" "2Gi" .Values.restore.audio }}
-        - name: rclone
-          secret:
-            secretName: {{ .Values.secrets.rclone }}
+        {{- include "ln.restoreVolumes" . | nindent 8 }}
+{{- if .Values.restore.schedule }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ln.name" . }}-restore-drill
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: restore-drill
+spec:
+  schedule: {{ .Values.restore.schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      # Longer than the seed Job's: the weekly run re-fetches the audio
+      # mirror from Drive into a fresh emptyDir every time.
+      activeDeadlineSeconds: {{ ternary 5400 1800 .Values.restore.audio }}
+      template:
+        metadata:
+          labels:
+            {{- include "ln.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: restore-drill
+        spec:
+          restartPolicy: Never
+          initContainers:
+            {{- include "ln.restoreSteps" . | nindent 12 }}
+          containers:
+            - name: smoke
+              image: busybox:stable
+              command: ["sh", "/scripts/smoke.sh"]
+              env:
+                - name: APP_HOST
+                  value: {{ include "ln.name" . }}
+                - name: PUSH_URL
+                  value: {{ .Values.restore.pushUrl | quote }}
+              volumeMounts:
+                - { name: scripts, mountPath: /scripts }
+          volumes:
+            {{- include "ln.restoreVolumes" . | nindent 12 }}
+{{- end }}
 {{- end }}

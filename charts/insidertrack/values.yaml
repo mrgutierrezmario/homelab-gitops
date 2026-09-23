@@ -41,6 +41,12 @@ restore:
   enabled: true
   rcloneRemote: "stock-tracker-backup:"
   rcloneImage: rclone/rclone:1
+  # Weekly re-restore + smoke test (DESIGN.md phase 9). Sunday 13:00 UTC is
+  # after the 03:00 local backup in any US timezone. Empty = no CronJob, and
+  # then staging's data only refreshes when the restore itself changes.
+  schedule: "0 13 * * 0"
+  # Optional Uptime Kuma push URL, hit when the drill passes (phase 7).
+  pushUrl: ""
   # A copy must not act as production. These app_settings rows (API keys,
   # mail credentials the admin saved in the UI) are removed after restore, and
   # the AI provider is pinned to Ollama, so staging never spends a paid key
