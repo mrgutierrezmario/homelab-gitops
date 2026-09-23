@@ -14,5 +14,5 @@ app:
   # The Mac that hosts the VM, from inside it (see charts/insidertrack/README.md).
   ollamaBaseUrl: http://host.lima.internal:11434
 image:
-  tag: main@sha256:79e5ba32372a2f2e4a9672cd2f6d5efe3bae4fe8cb4bb1443f50a682386b735a
+  tag: main@sha256:50352090eb3c7fd959207d14d73d9802e528950c9e25f4dc60b0b39f3020e1f4
   repository: ghcr.io/mrgutierrezmario/lecture-note-app
