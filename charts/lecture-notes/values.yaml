@@ -80,3 +80,15 @@ app:
   # Whisper / Hugging Face model downloads survive pod restarts.
   cacheStorage: 3Gi
   extraEnv: []
+
+# Is the off-site backup still being made? A daily check on the date in the
+# newest bundle's name. 36 hours allows for the 03:00 local run in any
+# timezone plus a late finish; two missed nights is not a false alarm.
+monitoring:
+  backupAge:
+    enabled: true
+    schedule: "0 14 * * *"
+    maxAgeHours: 36
+    # Uptime Kuma push monitor URL. Empty = the check still runs and a
+    # stale backup still fails the CronJob; it just is not on the dashboard.
+    pushUrl: ""

@@ -1,0 +1,127 @@
+# Uptime Kuma — the thing that notices when something stops (DESIGN.md §8a
+# phase 7). Watches the two public production URLs, the MCP, the staging
+# copies, and — via push monitors — whether the backups are fresh and the
+# weekly restore drill still passes.
+#
+# One caveat, stated plainly: **its configuration is not in git.** Uptime
+# Kuma keeps monitors, notifications and the status page in a SQLite file on
+# the PVC below. This manifest is declarative; what it watches is clicked in.
+# The monitors to recreate are listed in platform/uptime-kuma/README.md, and
+# the PVC is the thing to care about. (Gatus is the GitOps-native
+# alternative — declarative YAML — if that trade ever stops being worth it.)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: uptime-kuma
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: uptime-kuma
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: uptime-kuma
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: uptime-kuma
+spec:
+  selector:
+    app.kubernetes.io/name: uptime-kuma
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uptime-kuma
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: uptime-kuma
+spec:
+  replicas: 1
+  # SQLite on a ReadWriteOnce volume: never two at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: uptime-kuma
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: uptime-kuma
+    spec:
+      containers:
+        - name: uptime-kuma
+          # v1 is the stable line; v2 is still beta at time of writing.
+          image: louislam/uptime-kuma:1
+          ports:
+            - name: http
+              containerPort: 3001
+          env:
+            # Kuma builds its links (and the status page) from this.
+            - name: UPTIME_KUMA_PORT
+              value: "3001"
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          # No runAsNonRoot: the image runs as root and writes to /app/data.
+          # Generous timeouts — this VM has been shown to starve probes
+          # (docs/OPERATIONS.md).
+          startupProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 15
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { cpu: "1", memory: 384Mi }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: uptime-kuma
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: uptime-kuma
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: uptime-kuma
+  # Tailnet only, deliberately. Uptime Kuma's admin UI lives at the same
+  # hostname as its status page, so putting this on Funnel publishes a login
+  # form to the internet. If a public status page is wanted, add
+  #   tailscale.com/funnel: "true"
+  # here, and first: set a strong admin password, enable 2FA in Settings,
+  # and accept that the instance now needs keeping up to date.
+  annotations: {}
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - uptime
+  rules:
+    - host: uptime
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: uptime-kuma
+                port:
+                  number: 3001

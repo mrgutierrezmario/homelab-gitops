@@ -1,0 +1,28 @@
+# Uptime Kuma (DESIGN.md §8a phase 7). Plain manifests, not a chart: it is
+# one container and a volume, and a third-party chart would be more moving
+# parts than the thing it deploys.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: uptime-kuma
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+    targetRevision: main
+    path: platform/uptime-kuma
+    directory:
+      # README.md sits beside the manifests.
+      include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

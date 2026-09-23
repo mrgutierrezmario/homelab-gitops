@@ -15,7 +15,8 @@ Staging runs *copies* restored from last night's backups; every merge to
 | `docs/OPERATIONS.md` | runbook: build the cluster, rebuild it, day to day |
 | `docs/restore-drill.md` | how the cluster proves the backups restore, and what that does not cover |
 | `bootstrap/` | the VM template and the two scripts that bring up k3s and Argo CD |
-| `apps/platform/` | Argo Applications for the platform: Argo CD itself, Sealed Secrets, Tailscale operator, Image Updater |
+| `apps/platform/` | Argo Applications for the platform: Argo CD itself, Sealed Secrets, Tailscale operator, Image Updater, Uptime Kuma |
+| `platform/` | config for those components that is not a chart: the ImageUpdater resource, the Uptime Kuma manifests |
 | `apps/staging/` | Argo Applications for the three apps (phases 2–4) |
 | `charts/` | one Helm chart per app |
 | `secrets/` | SealedSecrets only |
@@ -80,7 +81,7 @@ Three properties this shape buys, and they are the point of the project:
 - **Production is untouched by all of it.** It still builds from source on
   the Mac and moves only when a person runs `deploy/start.sh`.
 
-## Status — phases 1–6 done (2026-09-21 / 23)
+## Status — phases 1–7 and 9 done (2026-09-21 / 23)
 
 Running on the current mini in a **6 GiB Lima VM** (DESIGN.md §5 "Phase A")
 ahead of the new machine; `docs/OPERATIONS.md` has the rebuild for when the
@@ -105,4 +106,7 @@ Drive client_id retires in 2026 and production's backups use it.
 Since phase 9 a **weekly CronJob** re-restores both apps from the newest
 bundle and smoke-tests the result, so the data tracks production instead of
 ageing, and a backup that stopped restoring gets noticed without anyone
-running anything (`docs/restore-drill.md`).
+running anything (`docs/restore-drill.md`). Phase 7 added **Uptime Kuma**
+at `uptime.tail3659a6.ts.net` watching the public URLs, plus a daily
+**backup-age** check — because `backup.sh` emails when it fails, and says
+nothing at all when it silently stops running.

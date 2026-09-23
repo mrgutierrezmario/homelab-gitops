@@ -5,11 +5,11 @@ as Docker Compose stacks on a Mac mini: **InsiderTrack**, **InsiderTrack
 MCP** and **AI Lecture Notes**. A staging cluster first, GitOps from day one,
 production cut-over only if and when it earns it.
 
-Status: **phases 1–6 and 9 done** (2026-09-21 / 23) — cluster and platform
+Status: **phases 1–7 and 9 done** (2026-09-21 / 23) — cluster and platform
 up on the current mini (Phase A, 6 GiB VM); all three apps in staging from
 restored bundles, public over Funnel, following `main` unattended, written
-up, and re-restored weekly by a drill that smoke-tests itself. Next:
-phase 7, Uptime Kuma. See `README.md`.
+up, re-restored weekly by a drill that smoke-tests itself, and watched by
+Uptime Kuma. Next: phase 8, observability. See `README.md`.
 
 ## 1. Why, in one paragraph
 
@@ -181,7 +181,7 @@ under `apps/platform/` — in this order:
 
 | Phase | What | Why | Cost |
 |---|---|---|---|
-| 7 — Uptime Kuma (1 day) | self-hosted uptime checks + status page for both public URLs, `/mcp/health`, and backup age; alerts to email/phone | replaces the free third-party pinger with something you own and can link from the READMEs | ~0.1 GB |
+| 7 — Uptime Kuma (1 day) | **done 2026-09-23** — `uptime.tail3659a6.ts.net`, tailnet only. Keyword monitors on both public URLs and `/mcp/health` (the apps answer 200 while `degraded`, so status codes alone would lie), push monitors for backup age and the weekly drill. The **backup-age check is a CronJob in each chart** — declarative, in git — because that was the one part worth not clicking | replaces the free third-party pinger with something you own. Its own config is SQLite on a PVC, not git: `platform/uptime-kuma/README.md` is the recovery list | ~0.1 GB |
 | 8 — Observability (a weekend) | **Prometheus + Grafana + Loki**: the cluster, the staging apps, and — over Tailscale — the *production* stacks on the new mini. FastAPI gets `/metrics` (one library). One dashboard: request rates, scraper timings, Whisper lag, Ollama call durations, backup age. Loki makes "why did the scraper fail at 06:40" a query | today there is no metrics or log search at all; this is the thing listed next to Kubernetes in every job posting | ~1.5 GB |
 | 9 — Restore drill as a `CronJob` (1 day) | **done 2026-09-23** — Sunday 13:00 UTC, both apps: same steps as the seed restore plus a `smoke` step that asks the running app whether it can serve the restored data. `restore.pushUrl` is the Uptime Kuma hook, wired in phase 7 | the monthly runbook item done automatically, forever; a backup that is restored weekly is a backup | — |
 | 10 — Self-hosted CI runner (a weekend) | GitHub Actions runner pods via the Actions Runner Controller; image builds happen here and push to GHCR; the "build candidate → deploy to staging → drill" pipeline lives on it | faster builds, no GitHub minutes, and ARC is a standard enterprise pattern | ~1 GB when busy |

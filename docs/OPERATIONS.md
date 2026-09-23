@@ -143,6 +143,29 @@ image:
 Production is untouched by all of this: it builds from source on the Mac
 (`deploy/start.sh`) and only moves when a person says so.
 
+## Monitoring (phase 7)
+
+`https://uptime.tail3659a6.ts.net` — Uptime Kuma, tailnet only. What it
+watches and how to rebuild it after a lost PVC:
+`platform/uptime-kuma/README.md`.
+
+Two of its monitors are fed from inside the cluster rather than probed:
+
+| Check | Runs | Fails when |
+|---|---|---|
+| `<app>-backup-age` CronJob | daily 14:00 UTC | the newest bundle in the off-site remote is older than 36 h — i.e. the nightly `backup.sh` stopped running, which otherwise sends no signal at all |
+| `<app>-restore-drill` CronJob | Sunday 13:00 UTC | the restore fails, or the app cannot serve what was restored (`docs/restore-drill.md`) |
+
+```sh
+kubectl -n insidertrack-staging get cronjob
+kubectl -n insidertrack-staging logs -l app.kubernetes.io/component=backup-age --tail=20
+kubectl create job --from=cronjob/insidertrack-backup-age check-now -n insidertrack-staging
+```
+
+Both push to Uptime Kuma only when `pushUrl` is set in the chart's staging
+values. Without it they still run and still fail visibly as failed
+CronJobs — they are just not on a dashboard.
+
 ## Follow-ups the cluster surfaced
 
 - **Lecture Notes: opening a lecture whose audio is gone breaks the page**

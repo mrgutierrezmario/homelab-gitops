@@ -1,0 +1,80 @@
+{{- if .Values.monitoring.backupAge.enabled }}
+# Is the off-site backup actually still being made? Nothing else asks.
+# `backup.sh` emails on failure, but a backup that silently stopped running
+# — a launchd job that never fired, an expired Drive token — sends nothing
+# at all. This checks the date in the newest bundle's name and fails if it
+# has fallen behind, which shows up as a failed CronJob and, when
+# `pushUrl` is set, as a missed heartbeat in Uptime Kuma (DESIGN.md §8a).
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "ln.name" . }}-backup-age
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup-age
+spec:
+  schedule: {{ .Values.monitoring.backupAge.schedule | quote }}
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 300
+      template:
+        metadata:
+          labels:
+            {{- include "ln.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: backup-age
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: {{ .Values.restore.rcloneImage }}
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  remote="${RCLONE_REMOTE%:}:daily"
+                  latest=$(rclone lsf "$remote" --files-only \
+                    | grep -E "^${PREFIX}-[0-9]{4}-[0-9]{2}-[0-9]{2}\.tar\.gz$" \
+                    | sort | tail -1)
+                  if [ -z "$latest" ]; then
+                    echo "[backup-age] no bundles at all in $remote"; exit 1
+                  fi
+                  # The date is in the name, so this needs no clock on the
+                  # remote and no mtime that a sync might have rewritten.
+                  day=$(echo "$latest" | sed -n 's/.*-\([0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)\.tar\.gz$/\1/p')
+                  made=$(date -u -D '%Y-%m-%d' -d "$day" +%s)
+                  age=$(( ( $(date -u +%s) - made ) / 3600 ))
+                  echo "[backup-age] newest is $latest, ${age}h old (limit ${MAX_AGE_HOURS}h)"
+                  if [ "$age" -gt "$MAX_AGE_HOURS" ]; then
+                    echo "[backup-age] STALE — the nightly backup has not run"; exit 1
+                  fi
+                  if [ -n "${PUSH_URL:-}" ]; then
+                    wget -qO- -T 10 "$PUSH_URL" >/dev/null 2>&1 \
+                      || echo "[backup-age] push failed (ignored)"
+                  fi
+                  echo "[backup-age] ok"
+              env:
+                - name: RCLONE_REMOTE
+                  value: {{ .Values.restore.rcloneRemote | quote }}
+                - name: RCLONE_CONFIG
+                  value: /config/rclone.conf
+                - name: PREFIX
+                  value: lecture-notes
+                - name: MAX_AGE_HOURS
+                  value: {{ .Values.monitoring.backupAge.maxAgeHours | quote }}
+                - name: PUSH_URL
+                  value: {{ .Values.monitoring.backupAge.pushUrl | quote }}
+              resources:
+                requests: { cpu: 10m, memory: 32Mi }
+                limits: { memory: 128Mi }
+              volumeMounts:
+                - { name: rclone, mountPath: /config, readOnly: true }
+          volumes:
+            - name: rclone
+              secret:
+                secretName: {{ .Values.secrets.rclone }}
+{{- end }}
