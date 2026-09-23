@@ -118,8 +118,9 @@ merge to main in an app repo
 ```
 
 Nothing reaches the cluster that is not in git first, and `git log
-charts/*/values-staging.yaml` is the deployment history. What it writes
-looks like:
+charts/*/values-staging.yaml` is the deployment history. First run
+verified 2026-09-23: three commits, each digest checked against the live
+GHCR manifest for `main`. What it writes looks like:
 
 ```yaml
 image:
@@ -129,7 +130,8 @@ image:
 
 | | |
 |---|---|
-| Is it working | `kubectl -n argocd logs deploy/image-updater --tail=50`; or just `git log --oneline -- charts` |
+| Is it working | `git log --oneline -- charts` — its commits are the evidence. Logs: `kubectl -n argocd logs deploy/image-updater-argocd-image-updater --tail=50` (Helm expands the release name, so the Deployment is *not* called `image-updater`) |
+| What is actually running | `kubectl -n <ns> get deploy -o jsonpath='{.items[*].spec.template.spec.containers[*].image}'` — should end in the same `@sha256:` as the values file |
 | It is not updating | the image must be in the Application's *rendered* template for Image Updater to consider it; check the alias in `platform/image-updater/imageupdater.yaml` matches `image.repository`/`image.tag` in that chart |
 | Write-back fails with a permission error | the deploy key lost write access, or was removed in GitHub — `secrets/README.md` |
 | Pause it for one app | delete that `applicationRefs` entry in `platform/image-updater/imageupdater.yaml`, commit. The app then stays on whatever digest is in its values file |

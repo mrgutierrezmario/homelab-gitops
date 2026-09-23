@@ -32,7 +32,7 @@ old mini is dedicated.
 | InsiderTrack MCP | same host, `/mcp`; answers claude.ai with its own token |
 | Lecture Notes | `https://lecture-notes-staging.tail3659a6.ts.net` — 3 users, 201 lectures, 2,872 transcript segments, 2,998 audio chunks restored; migrations in an initContainer; a live recording transcribed by Whisper on CPU |
 | Images | each repo's CI pushes amd64 + arm64 to GHCR on every merge to `main` |
-| Update loop | Image Updater watches those three tags and **commits the new digest to this repo**; Argo syncs the commit. A Dependabot merge reaches staging with nobody touching anything, and `git log` is the deployment history |
+| Update loop | Image Updater watches those three tags and **commits the new digest to this repo**; Argo syncs the commit. A Dependabot merge reaches staging with nobody touching anything, and `git log` is the deployment history. Verified 2026-09-23 — all three apps pinned to `main@sha256:…` by the bot, digests matching GHCR |
 
 **Next:** phase 6, the write-up (architecture diagram, restore-drill doc),
 then the platform extras (DESIGN §8a): Uptime Kuma, Prometheus/Grafana/Loki,
