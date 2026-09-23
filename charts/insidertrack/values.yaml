@@ -70,7 +70,9 @@ app:
   trustedProxies: ""
   resources:
     requests: { cpu: 100m, memory: 384Mi }
-    limits: { memory: 1Gi }
+    # Capped so a scraper run cannot starve the node — see the same note in
+    # charts/lecture-notes/values.yaml.
+    limits: { cpu: "1", memory: 1Gi }
   # Where the app's own nightly pg_dump lands (services/db_backup.py). A
   # copy of a copy — an emptyDir is enough.
   backupsSizeLimit: 2Gi

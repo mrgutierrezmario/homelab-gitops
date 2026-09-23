@@ -92,8 +92,11 @@ operator is the ingress):
 | Lecture Notes staging (postgres 0.1, minio 0.3, app 0.4 idle / 2.5 with Whisper) | ~0.8–2.9 |
 | **Total** | **~3.3 GB idle, ~5.4 GB when Whisper runs** |
 
-Running since 2026-09-21 in a **6 GiB** VM with all of the above, and a
-live recording transcribed. Real numbers to fill in: `kubectl top pods -A`
+Running since 2026-09-21 in a **6 GiB, 4-vCPU** VM with all of the above,
+and a live recording transcribed. **CPU turned out to be the binding
+constraint, not memory**: uncapped Whisper starved the kubelet and Argo's
+repo-server (2026-09-23), so the staging apps now carry CPU limits.
+Real numbers to fill in: `kubectl top pods -A`
 and `limactl shell k3s -- free -m` during a recording. The pod limits in
 the charts (Lecture Notes app 3 Gi) are the ceiling; if the VM swaps
 during a lecture, that is the number to lower or the moment to move to the

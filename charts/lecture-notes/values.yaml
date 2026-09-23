@@ -63,7 +63,14 @@ app:
   resources:
     # Whisper `small` needs ~2 GB while a chunk is being transcribed.
     requests: { cpu: 250m, memory: 512Mi }
-    limits: { memory: 3Gi }
+    # The CPU limit is about the *node*, not this pod. Transcription will use
+    # every core it is given; on a four-vCPU VM that starved the kubelet
+    # (node went NotReady) and Argo's repo-server (probes timed out) —
+    # 2026-09-23. Two cores leaves two for everything else, always.
+    # The cost is throttling: transcription is slower here than in
+    # production. That is the stated intent — staging Whisper is for smoke
+    # tests, not real time (DESIGN.md §3).
+    limits: { cpu: "2", memory: 3Gi }
   # Whisper / Hugging Face model downloads survive pod restarts.
   cacheStorage: 3Gi
   extraEnv: []
