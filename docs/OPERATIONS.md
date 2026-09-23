@@ -166,6 +166,37 @@ Both push to Uptime Kuma only when `pushUrl` is set in the chart's staging
 values. Without it they still run and still fail visibly as failed
 CronJobs — they are just not on a dashboard.
 
+## Turning observability on (after the 12 GiB rebuild)
+
+`apps/platform/observability.yaml` is deliberately manual-sync. Before
+enabling it, measure — the reason it is off is capacity, so the check is
+the point:
+
+```sh
+limactl shell k3s -- free -m       # want >2.5 GB available, not just free
+kubectl top nodes                  # CPU should idle well under 50%
+```
+
+Then, once the VM is the 12 GiB one:
+
+```sh
+kubectl -n argocd patch application observability --type merge \
+  -p '{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}'
+```
+
+and commit the same change to the file, or Argo's selfHeal on the root app
+will revert it. Grafana lands at `grafana.tail3659a6.ts.net` (tailnet only);
+the admin password is in the sealed `grafana-admin` secret:
+
+```sh
+kubectl -n observability get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d; echo
+```
+
+Watch the node for an hour afterwards. If probes start timing out again
+(`docs/OPERATIONS.md` above), Prometheus' `retention` and `resources` in
+`apps/platform/values/kube-prometheus-stack.yaml` are the dials, and
+turning it back off is removing the `automated` block again.
+
 ## Follow-ups the cluster surfaced
 
 - **Lecture Notes: opening a lecture whose audio is gone breaks the page**

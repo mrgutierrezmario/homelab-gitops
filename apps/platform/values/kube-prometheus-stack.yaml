@@ -1,0 +1,108 @@
+# Metrics for the cluster and the apps in it (DESIGN.md §8a phase 8).
+#
+# Sized for a 6 GiB VM that is already two-thirds full, so this is the
+# trimmed build: no Alertmanager (Uptime Kuma does the alerting and already
+# reaches a phone), no scraping of control-plane components k3s does not
+# expose separately, and a retention window measured in days rather than
+# months. If it moves to the 12 GiB VM, retention is the first dial to turn
+# up (DESIGN.md §5).
+
+# Uptime Kuma is the alerting path; a second one is memory for nothing.
+alertmanager:
+  enabled: false
+
+# k3s runs the control plane inside one process, so these have no separate
+# endpoints to scrape and would sit permanently "down" on the dashboards.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+
+prometheusOperator:
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { memory: 256Mi }
+
+kubeStateMetrics:
+  enabled: true
+kube-state-metrics:
+  resources:
+    requests: { cpu: 10m, memory: 48Mi }
+    limits: { memory: 128Mi }
+
+nodeExporter:
+  enabled: true
+prometheus-node-exporter:
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 64Mi }
+
+prometheus:
+  prometheusSpec:
+    # 7 days of history on a box whose job is staging. Long enough to answer
+    # "what did it do overnight" and "was it like this last week".
+    retention: 7d
+    retentionSize: 6GB
+    scrapeInterval: 60s
+    evaluationInterval: 60s
+    # Without this the operator only picks up ServiceMonitors that carry the
+    # release label — which silently ignores anything added by hand later.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    resources:
+      requests: { cpu: 100m, memory: 512Mi }
+      limits: { memory: 1400Mi }
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 8Gi
+
+grafana:
+  # The admin password is a SealedSecret (secrets/observability/), not a
+  # value: this file is public.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  # Tailnet only, like Argo CD and Uptime Kuma. No Funnel annotation.
+  ingress:
+    enabled: true
+    ingressClassName: tailscale
+    hosts: [grafana]
+    tls:
+      - hosts: [grafana]
+  persistence:
+    enabled: true
+    size: 2Gi
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 384Mi }
+  # Loki is added as a data source by its own Application's sidecar label,
+  # so logs and metrics land in the same Grafana.
+  sidecar:
+    datasources:
+      enabled: true
+      label: grafana_datasource
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+  grafana.ini:
+    server:
+      root_url: https://grafana.tail3659a6.ts.net
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+    users:
+      # One person, one tailnet; the sign-up form is noise.
+      allow_sign_up: false

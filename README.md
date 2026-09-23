@@ -99,6 +99,15 @@ old mini is dedicated.
 **Next:** the platform extras (DESIGN §8a) — Uptime Kuma, then
 Prometheus/Grafana/Loki, then the restore drill as a weekly CronJob.
 
+**Phase 8 (Prometheus + Grafana) is committed but not running.** Its Argo
+Application has no automated sync policy on purpose: the stack's limits come
+to ~2.2 GB on a 6 GiB VM that is already ~3.4 GB idle, and its constant
+scrape load is the same CPU contention that made Argo's repo-server fail its
+own health probes on 2026-09-23. It turns on after the 12 GiB rebuild
+(`PLAN.md` step 3) — the command is in `apps/platform/observability.yaml`.
+Loki and the apps' `/metrics` endpoints are not built yet for the same
+reason.
+
 **Found by staging already** (`docs/OPERATIONS.md` → Follow-ups): opening a
 Lecture Notes lecture whose audio is gone breaks the page; rclone's shared
 Drive client_id retires in 2026 and production's backups use it.

@@ -1,0 +1,50 @@
+# Metrics: Prometheus + Grafana (DESIGN.md §8a phase 8).
+#
+# ── NOT ENABLED ───────────────────────────────────────────────────────────
+# There is deliberately no `syncPolicy.automated` here. The 6 GiB Phase A VM
+# is already ~3.4 GB idle and ~5.4 GB while Whisper runs (DESIGN.md §5), and
+# this stack's limits total ~2.2 GB. Worse than the memory is the CPU: four
+# vCPUs, and constant scraping is the same contention that got the Argo
+# repo-server killed by its own probes on 2026-09-23.
+#
+# So this sits here, configured and ready, and syncs when someone decides:
+#
+#   kubectl -n argocd patch application observability --type merge \
+#     -p '{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}'
+#
+# The intended home is the 12 GiB VM on the dedicated mini (PLAN.md step 3),
+# where retention and Loki (phase 8's other half) also become affordable.
+# Measure first: `limactl shell k3s -- free -m` and `kubectl top nodes`.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  sources:
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 91.5.0
+      helm:
+        releaseName: kps
+        valueFiles:
+          - $values/apps/platform/values/kube-prometheus-stack.yaml
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      ref: values
+    # grafana-admin, sealed.
+    - repoURL: https://github.com/mrgutierrezmario/homelab-gitops.git
+      targetRevision: main
+      path: secrets/observability
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    # No `automated:` — see the note above. Manual until the VM can hold it.
+    syncOptions:
+      - CreateNamespace=true
+      # The stack ships large CRDs; client-side apply cannot annotate them.
+      - ServerSideApply=true
