@@ -57,10 +57,25 @@ spec:
       labels:
         app.kubernetes.io/name: uptime-kuma
     spec:
+      securityContext:
+        # The image's USER is `node` — a name, which the kubelet cannot check
+        # against runAsNonRoot, so the uid is spelled out (the same trap as
+        # charts/insidertrack-mcp). fsGroup makes the PVC writable by it:
+        # local-path creates the directory as root.
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: uptime-kuma
-          # v1 is the stable line; v2 is still beta at time of writing.
-          image: louislam/uptime-kuma:1
+          # v2 is the maintained line — v1 (the `1` and `latest` tags) stopped
+          # getting security fixes, and says so in its own UI. Pinned to an
+          # exact version, not `2`: this is the one thing here whose data is
+          # not restorable, so upgrades are a deliberate edit.
+          # `-rootless` runs as uid 1000 instead of root.
+          image: louislam/uptime-kuma:2.5.5-rootless
           ports:
             - name: http
               containerPort: 3001
@@ -90,6 +105,10 @@ spec:
           resources:
             requests: { cpu: 50m, memory: 128Mi }
             limits: { cpu: "1", memory: 384Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
       volumes:
         - name: data
           persistentVolumeClaim:

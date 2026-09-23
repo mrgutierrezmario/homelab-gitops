@@ -3,6 +3,11 @@
 `https://uptime.tail3659a6.ts.net` — tailnet only (see the Ingress comment
 in `uptime-kuma.yaml` before considering Funnel).
 
+Running **Uptime Kuma 2.x, rootless**, pinned to an exact version in
+`uptime-kuma.yaml`. Bumping it is a deliberate edit — check the release
+notes first, because its data (below) is the one thing here that no restore
+job can bring back.
+
 ## First login
 
 Kuma has no default account: the first person to open it creates the admin.
