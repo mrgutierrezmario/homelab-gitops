@@ -86,7 +86,7 @@ operator is the ingress):
 | | GB |
 |---|---|
 | k3s control plane + CoreDNS + metrics | ~0.8 |
-| Argo CD (server, repo-server, controller, redis) + Image Updater | ~0.8 |
+| Argo CD (server, repo-server, controller, redis) + Image Updater | ~0.8 idle; **limits now 1 Gi each for the controller and repo-server** — the first sizing (512Mi / 256Mi) OOM-killed the repo-server and the server inside a day, and an OOM-killed repo-server makes apps report `Synced` at a stale revision rather than fail loudly |
 | Sealed Secrets + Tailscale operator + one proxy pod per Ingress (3) | ~0.3 |
 | InsiderTrack staging (postgres 0.2, app 0.3, mcp 0.1) | ~0.6 |
 | Lecture Notes staging (postgres 0.1, minio 0.3, app 0.4 idle / 2.5 with Whisper) | ~0.8–2.9 |

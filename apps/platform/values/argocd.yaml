@@ -8,6 +8,11 @@ configs:
   params:
     # TLS ends at the Tailscale operator; the pod speaks plain HTTP.
     server.insecure: true
+    # Render at most two manifests at once. Rendering is what makes the
+    # repo-server's memory spike, and a repo-server that gets OOM-killed
+    # mid-refresh leaves apps reporting "Synced" at a stale revision
+    # (2026-09-23 — that is how phase 5's write-backs sat unapplied).
+    reposerver.parallelism.limit: 2
   cm:
     # How often git is polled (default 120s + up to 60s jitter). Public repo,
     # no webhook — 3 min is fine.
@@ -24,6 +29,9 @@ notifications:
 applicationSet:
   replicas: 0
 
+# Limits below are ceilings, not usage: the whole control plane idles at
+# well under its requests. They were too tight at first — repo-server 512Mi
+# and server 256Mi both OOM-killed within a day (see configs.params above).
 server:
   ingress:
     enabled: true
@@ -36,17 +44,19 @@ server:
     tls: true
   resources:
     requests: { cpu: 50m, memory: 128Mi }
-    limits: { memory: 256Mi }
+    limits: { memory: 512Mi }
 
 controller:
   resources:
     requests: { cpu: 100m, memory: 256Mi }
-    limits: { memory: 512Mi }
+    limits: { memory: 1Gi }
 
 repoServer:
   resources:
-    requests: { cpu: 50m, memory: 128Mi }
-    limits: { memory: 512Mi }
+    requests: { cpu: 50m, memory: 192Mi }
+    # Renders every chart in this repo plus the platform charts; the peak,
+    # not the average, is what has to fit.
+    limits: { memory: 1Gi }
 
 redis:
   resources:

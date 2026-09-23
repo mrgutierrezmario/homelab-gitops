@@ -91,6 +91,7 @@ fine while the count is small.
 | Mac rebooted | Lima does not autostart. `limactl start k3s`; everything else comes back on its own (k3s is a systemd unit, Argo reconverges) |
 | VM out of memory | `limactl shell k3s -- free -m`; `kubectl top pods -A`. Under 6 GiB, Whisper in Lecture Notes is the only thing that pushes it — see DESIGN.md §5 |
 | Stop everything | `limactl stop k3s` — production is unaffected, it is not in the VM |
+| Commits are not being picked up, apps look `Synced` at an old revision | check `kubectl -n argocd get pods` for restarts on `argocd-repo-server`. It resolves revisions and renders manifests; when it is OOM-killed mid-refresh the controller keeps its last good state and still says `Synced`. Its memory limit is the thing to raise (2026-09-23) |
 | Something is `OutOfSync` and stays so | click Sync in the UI once; if it flips back, someone edited the cluster by hand and `selfHeal` is reverting it — fix it in git |
 | Roll back a change | `git revert`, push; Argo applies the revert |
 | A commit is not being applied, app says `Syncing` for ages | a sync waiting on a wave (a Job that cannot start) blocks all later syncs. `kubectl -n argocd patch application <name> --type json -p '[{"op":"remove","path":"/operation"}]'` terminates it; auto-sync restarts on the newest commit |
