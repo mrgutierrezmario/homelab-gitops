@@ -29,7 +29,10 @@ Full instructions: https://rclone.org/drive/#making-your-own-client-id
 2. **APIs & Services → Library** → search *Google Drive API* → **Enable**.
 3. **APIs & Services → OAuth consent screen** → **External** → fill in the
    app name and your email. Add your own Google account under **Test users**.
-   Leave it in *Testing*; it never needs publishing for personal use.
+   **Publish the app** (consent screen → *Publish app*). In *Testing* mode
+   Google expires refresh tokens after 7 days, which would silently stop the
+   backups a week later. Publishing needs no Google review for the
+   `drive.file` scope with only your own account using it.
    - Scope to add: `https://www.googleapis.com/auth/drive.file` — that is
      the scope `backup-setup.sh` uses, and it limits rclone to files it
      created itself.
@@ -77,10 +80,17 @@ which here means both backup folders and the keystore vault. `client_secret`
 is less sensitive (desktop OAuth clients are not really secret) but rotate
 both together:
 
-1. Google Account → Security → *Your connections to third-party apps* →
-   remove rclone. This revokes the refresh token.
-2. Cloud Console → Credentials → the OAuth client → **Reset secret**.
-3. Rerun step 2 above with the new secret, then `reconnect`.
+1. https://myaccount.google.com/connections → remove the connection. **It is
+   not listed as "rclone"** — it carries the name from the OAuth consent
+   screen, currently **"Lecture App rclone backups"**. One entry covers all
+   three remotes (`gdrive`, `gdrive-stock-tracker`, and `keystore-vault` on
+   top of it), so removing it revokes everything and re-authorising restores
+   everything. This is the step that actually kills the refresh token.
+2. https://console.cloud.google.com/apis/credentials → the OAuth client →
+   **Add secret** (newer consoles have no "Reset"). Copy the new value.
+3. Rerun step 2 above with the new secret, `reconnect` both remotes, confirm
+   the listings in step 3 work, and **only then** delete the old secret.
+   Deleting first leaves a window where the 03:00 backup fails.
 
 Use `rclone config show <remote> | grep -v token` if you need to check a
 remote's settings.
