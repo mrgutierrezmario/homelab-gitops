@@ -43,6 +43,24 @@ verify() {
 
 command -v rclone >/dev/null || { echo "rclone is not installed"; exit 1; }
 
+# rclone's auth callback always listens on this port. A previous attempt that
+# was interrupted leaves it held, and the next run dies with
+# "bind: address already in use" long after you have typed everything in.
+free_auth_port() {
+  local pids
+  pids=$(lsof -ti tcp:53682 2>/dev/null)
+  [ -z "$pids" ] && return 0
+  echo "Port 53682 is still held by an earlier rclone auth attempt."
+  printf 'Stop it? [Y/n] '; read -r a
+  case "${a:-y}" in
+    [Nn]*) echo "Leaving it; the reconnect will fail until it is gone."; return 1 ;;
+  esac
+  echo "$pids" | while read -r p; do kill "$p" 2>/dev/null; done
+  sleep 1
+  [ -z "$(lsof -ti tcp:53682 2>/dev/null)" ] && echo "  freed" || echo "  still held — try: lsof -ti tcp:53682 | xargs kill -9"
+}
+free_auth_port
+
 echo "Paste the OAuth client ID, then the secret (the secret stays hidden)."
 printf 'client ID     : '; read -r ID
 printf 'client secret : '; read -rs SECRET; echo
@@ -50,6 +68,20 @@ printf 'client secret : '; read -rs SECRET; echo
 if [ -z "$ID" ] || [ -z "$SECRET" ]; then
   echo "Both values are required — nothing changed."; exit 1
 fi
+
+# The two are easy to swap, and a swap is only discovered several prompts and
+# one browser round-trip later. They have distinct shapes, so just check.
+case "$ID" in
+  *.apps.googleusercontent.com) ;;
+  GOCSPX-*) echo; echo "That is the SECRET, not the client ID — they are swapped."
+            echo "The ID ends in .apps.googleusercontent.com. Nothing changed."; exit 1 ;;
+  *) echo; echo "That does not look like a client ID (expected it to end in"
+     echo ".apps.googleusercontent.com). Nothing changed."; exit 1 ;;
+esac
+case "$SECRET" in
+  *.apps.googleusercontent.com)
+     echo; echo "That is the client ID in the secret field. Nothing changed."; exit 1 ;;
+esac
 
 for r in "${REMOTES[@]}"; do
   rclone config update "$r" client_id "$ID" client_secret "$SECRET" >/dev/null \
