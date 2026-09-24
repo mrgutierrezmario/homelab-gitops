@@ -131,9 +131,11 @@ own health probes on 2026-09-23. It turns on after the 12 GiB rebuild
 Loki and the apps' `/metrics` endpoints are not built yet for the same
 reason.
 
-**Found by staging already** (`docs/OPERATIONS.md` → Follow-ups): opening a
-Lecture Notes lecture whose audio is gone breaks the page; rclone's shared
-Drive client_id retires in 2026 and production's backups use it.
+**Found by staging** (`docs/OPERATIONS.md` → Follow-ups): rclone's shared
+Drive client_id retires during 2026 and every backup remote here uses it.
+(A second suspected bug — Lecture Notes breaking on a lecture whose audio
+was gone — turned out to be an artifact of restoring a dump without its
+audio, not a defect. Checked and struck from the list.)
 
 Since phase 9 a **weekly CronJob** re-restores both apps from the newest
 bundle and smoke-tests the result, so the data tracks production instead of

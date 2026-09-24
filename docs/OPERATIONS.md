@@ -252,12 +252,16 @@ that endpoint reports data-source failures.
 
 ## Follow-ups the cluster surfaced
 
-- **Lecture Notes: opening a lecture whose audio is gone breaks the page**
-  (seen in staging before the audio mirror was restored, 2026-09-21; the
-  server logged nothing, so it is the frontend). Production reaches the
-  same state once the 14-day retention has deleted a recording. Reproduce
-  in staging with `restore.audio: false`, capture the browser console,
-  fix in the app repo.
+- ~~Lecture Notes breaks when a lecture's audio is gone~~ — **not a bug,
+  and not something production reaches** (checked 2026-09-23). `has_audio`
+  comes from the `deleted_from_s3` column, which the retention cleanup
+  sets when it removes the objects; production has 892 chunks marked and
+  the UI correctly shows "MP3 (audio deleted)". What staging hit was a
+  mismatch this repo created: the restored dump said audio existed while
+  MinIO was empty, because `restore.audio` was `false`. Turning it on fixed
+  it. **Restoring the database without the audio is not a supported
+  combination** — keep `restore.audio: true` whenever the bundle's
+  lectures are meant to be openable.
 - **rclone's shared Google Drive client_id is being retired during 2026**
   (rclone prints a NOTICE on every run). This hits production's nightly
   `backup.sh` on the Mac, not just the staging restore. Fix in the
