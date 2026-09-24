@@ -7,5 +7,5 @@ app:
   # the chart README.
   ollamaBaseUrl: http://host.lima.internal:11434
 image:
-  tag: main@sha256:897cf4375a9a2beba7ecc2d9d80590429884641be51592717ee5c4e38a7982b9
+  tag: main@sha256:db4cbed357febfc79dcd6e3d9614bd3e1aa4b72f4d125a646b6c34d993834c6c
   repository: ghcr.io/mrgutierrezmario/insidertrack
