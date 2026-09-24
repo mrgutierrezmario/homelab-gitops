@@ -20,6 +20,13 @@ Runs daily at 09:30 and emails only when something is wrong. It reuses the
 Gmail app password already in `insidertrack/deploy/.env` — nothing new to
 store. Uninstall with `mac/install.sh --remove`.
 
+## Before 2026 runs out
+
+`rclone-own-client-id.md` — rclone's shared Google Drive client is being
+retired during 2026, and every backup remote here depends on it. When it
+lapses the off-site backups stop; this check would catch it, but ten minutes
+now avoids the whole thing.
+
 ## Check it by hand any time
 
 ```sh

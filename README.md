@@ -20,7 +20,7 @@ Staging runs *copies* restored from last night's backups; every merge to
 | `apps/staging/` | Argo Applications for the three apps (phases 2–4) |
 | `charts/` | one Helm chart per app |
 | `secrets/` | SealedSecrets only |
-| `mac/` | the daily backup-age check, as a launchd job — the one piece that runs on the Mac, and the only part of the retired cluster still watching production |
+| `mac/` | the daily backup-age check (launchd) and the runbook for giving rclone its own Drive client ID — the pieces that run on the Mac |
 
 ## How it fits together
 
