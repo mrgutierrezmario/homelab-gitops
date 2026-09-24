@@ -57,7 +57,33 @@ rclone config reconnect gdrive:
 ```
 
 A browser window opens for each; sign in with the Google account that owns
-the backups.
+the backups. Then **answer `n` to "Configure this as a Shared Drive (Team
+Drive)?"** — these are personal Drive folders, and the `drive.file` scope
+cannot list Team Drives, so answering `y` ends the reconnect with:
+
+```
+Error: listing Team Drives failed: googleapi: Error 403:
+  Request had insufficient authentication scopes.
+```
+
+That failure is only the last question; the authorisation itself succeeded.
+Rerun `reconnect` and answer `n`.
+
+### If a token or secret ever gets exposed
+
+Pasting `rclone config show` output anywhere shares a live `refresh_token`
+— that alone is ongoing access to everything rclone created in the Drive,
+which here means both backup folders and the keystore vault. `client_secret`
+is less sensitive (desktop OAuth clients are not really secret) but rotate
+both together:
+
+1. Google Account → Security → *Your connections to third-party apps* →
+   remove rclone. This revokes the refresh token.
+2. Cloud Console → Credentials → the OAuth client → **Reset secret**.
+3. Rerun step 2 above with the new secret, then `reconnect`.
+
+Use `rclone config show <remote> | grep -v token` if you need to check a
+remote's settings.
 
 ## 3. Prove it works
 
