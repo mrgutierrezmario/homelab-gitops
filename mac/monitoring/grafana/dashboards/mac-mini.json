@@ -184,7 +184,37 @@
       "showPoints": "never"
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*\\(dev\\)$"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8a94a6"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 0
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "legend": {
@@ -200,7 +230,16 @@
      "sort": "desc"
     }
    },
-   "description": "Working set per Compose project (all of its containers together)."
+   "description": "Working set per Compose project (all of its containers together).",
+   "transformations": [
+    {
+     "id": "renameByRegex",
+     "options": {
+      "regex": "^(mgntsdev.*)$",
+      "renamePattern": "$1 (dev)"
+     }
+    }
+   ]
   },
   {
    "id": 4,
@@ -232,7 +271,37 @@
       "showPoints": "never"
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*\\(dev\\)$"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8a94a6"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 0
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "legend": {
@@ -248,7 +317,16 @@
      "sort": "desc"
     }
    },
-   "description": "CPU cores in use (1 = one full core)."
+   "description": "CPU cores in use (1 = one full core).",
+   "transformations": [
+    {
+     "id": "renameByRegex",
+     "options": {
+      "regex": "^(mgntsdev.*)$",
+      "renamePattern": "$1 (dev)"
+     }
+    }
+   ]
   },
   {
    "id": 5,
@@ -280,7 +358,37 @@
       "showPoints": "never"
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*\\(dev\\)$"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8a94a6"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 0
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "legend": {
@@ -295,7 +403,16 @@
      "mode": "multi",
      "sort": "desc"
     }
-   }
+   },
+   "transformations": [
+    {
+     "id": "renameByRegex",
+     "options": {
+      "regex": "^(mgntsdev.*)$",
+      "renamePattern": "$1 (dev)"
+     }
+    }
+   ]
   },
   {
    "id": 6,
@@ -327,7 +444,37 @@
       "showPoints": "never"
      }
     },
-    "overrides": []
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byRegexp",
+       "options": ".*\\(dev\\)$"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8a94a6"
+        }
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          10,
+          6
+         ]
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 0
+       }
+      ]
+     }
+    ]
    },
    "options": {
     "legend": {
@@ -342,7 +489,16 @@
      "mode": "multi",
      "sort": "desc"
     }
-   }
+   },
+   "transformations": [
+    {
+     "id": "renameByRegex",
+     "options": {
+      "regex": "^(mgntsdev.*)$",
+      "renamePattern": "$1 (dev)"
+     }
+    }
+   ]
   },
   {
    "id": 124,
