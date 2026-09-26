@@ -8,7 +8,7 @@
  "schemaVersion": 41,
  "refresh": "30s",
  "time": {
-  "from": "now-6h",
+  "from": "now-1h",
   "to": "now"
  },
  "editable": false,
@@ -264,12 +264,13 @@
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "short",
+     "unit": "percentunit",
      "custom": {
       "lineWidth": 2,
       "fillOpacity": 10,
       "showPoints": "never"
-     }
+     },
+     "decimals": 1
     },
     "overrides": [
      {
@@ -317,7 +318,7 @@
      "sort": "desc"
     }
    },
-   "description": "CPU cores in use (1 = one full core).",
+   "description": "Share of one CPU core (100% = one full core; the VM has 8).",
    "transformations": [
     {
      "id": "renameByRegex",
@@ -437,12 +438,13 @@
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "short",
+     "unit": "percentunit",
      "custom": {
       "lineWidth": 2,
       "fillOpacity": 10,
       "showPoints": "never"
-     }
+     },
+     "decimals": 1
     },
     "overrides": [
      {
@@ -498,7 +500,8 @@
       "renamePattern": "$1 (dev)"
      }
     }
-   ]
+   ],
+   "description": "Share of one CPU core (100% = one full core; the VM has 8)."
   },
   {
    "id": 124,
