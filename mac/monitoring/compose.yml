@@ -1,0 +1,135 @@
+# Small Prometheus + Grafana for the Mac mini's production containers.
+# Start with ./start.sh. Grafana: https://grafana.<tailnet>.ts.net (tailnet
+# only — no Funnel) or http://localhost:3030 on the mini.
+#
+# Sized for a 16 GB Mac that also runs production: every service has a hard
+# memory cap (~550 MB total), scrapes are every 30 s, and Prometheus keeps
+# 7 days or 1 GB, whichever comes first. Alerts are UptimeRobot's job, not
+# this stack's — this is for looking at how things behave.
+
+name: monitoring
+
+x-restart: &restart unless-stopped
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "5m", max-file: "2" }
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    restart: *restart
+    logging: *logging
+    mem_limit: 384m
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=1GB
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  # Per-container CPU, memory and network, from the Docker API (the numbers
+  # `docker stats` shows). Not cAdvisor: it cannot identify containers under
+  # Docker Desktop's containerd image store. See docker-exporter/exporter.py.
+  docker-exporter:
+    image: python:3.13-alpine
+    restart: *restart
+    logging: *logging
+    mem_limit: 64m
+    command: ["python", "-u", "/app/exporter.py"]
+    volumes:
+      - ./docker-exporter/exporter.py:/app/exporter.py:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # The Docker VM as a whole (on a Mac, Docker runs in a VM — these numbers
+  # are that VM's, which is the budget production actually lives in).
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: *restart
+    logging: *logging
+    mem_limit: 48m
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.loadavg
+      - --collector.filesystem
+      - --collector.uname
+    volumes:
+      - /:/host:ro
+
+  # Response time and status of the public sites, from the mini.
+  blackbox:
+    image: prom/blackbox-exporter:v0.27.0
+    restart: *restart
+    logging: *logging
+    mem_limit: 48m
+
+  # Writes Grafana's Tailscale serve config (tailnet only: no AllowFunnel).
+  tailscale-config:
+    image: busybox:stable
+    volumes:
+      - tailscale-config:/config
+    command:
+      - sh
+      - -c
+      - |
+        cat > /config/serve.json.tmp <<'JSON'
+        {"TCP":{"443":{"HTTPS":true}},"Web":{"$${TS_CERT_DOMAIN}:443":{"Handlers":{"/":{"Proxy":"http://127.0.0.1:3000"}}}}}
+        JSON
+        mv /config/serve.json.tmp /config/serve.json
+
+  tailscale:
+    image: tailscale/tailscale:latest
+    restart: *restart
+    logging: *logging
+    hostname: ${TS_HOSTNAME:-grafana}
+    depends_on:
+      tailscale-config:
+        condition: service_completed_successfully
+    environment:
+      TS_HOSTNAME: ${TS_HOSTNAME:-grafana}
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+      TS_EXTRA_ARGS: --accept-dns=false
+    volumes:
+      - tailscale-state:/var/lib/tailscale
+      - tailscale-config:/config:ro
+    ports:
+      - "127.0.0.1:3030:3000"
+
+  grafana:
+    image: grafana/grafana-oss:12.1.1
+    restart: *restart
+    logging: *logging
+    mem_limit: 256m
+    network_mode: service:tailscale
+    depends_on:
+      tailscale:
+        condition: service_started
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in mac/monitoring/.env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/mac-mini.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  tailscale-state:
+  tailscale-config:

@@ -10,6 +10,9 @@ worth keeping alive — because it covers a gap nothing else does:
 `deploy/backup.sh` emails when a backup **fails**, and says nothing at all
 when it silently **stops running**.
 
+`monitoring/` — a small Prometheus + Grafana for the production containers
+(dashboards only; alerts are UptimeRobot's). See `monitoring/README.md`.
+
 ## Install
 
 ```sh

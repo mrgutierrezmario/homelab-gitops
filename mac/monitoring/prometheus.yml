@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 30s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs: [{ targets: ["localhost:9090"] }]
+
+  - job_name: containers
+    static_configs: [{ targets: ["docker-exporter:9417"] }]
+
+  - job_name: node
+    static_configs: [{ targets: ["node-exporter:9100"] }]
+
+  # The public sites, probed the way a visitor reaches them (through Funnel).
+  - job_name: sites
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    scrape_interval: 60s
+    static_configs:
+      - targets:
+          - https://mgnts.tail3659a6.ts.net/
+          - https://mgnts-stock-tracker.tail3659a6.ts.net/health
+          - https://mgnts-note-app.tail3659a6.ts.net/health
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        regex: https://([^.]+)\..*
+        target_label: site
+      # Display name only: "mgnts" alone reads too much like the mgntsdev container.
+      - source_labels: [site]
+        regex: mgnts
+        target_label: site
+        replacement: mgnts-site
+      - target_label: __address__
+        replacement: blackbox:9115
