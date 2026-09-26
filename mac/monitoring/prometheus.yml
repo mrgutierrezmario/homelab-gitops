@@ -20,7 +20,7 @@ scrape_configs:
     scrape_interval: 60s
     static_configs:
       - targets:
-          - https://mgnts.tail3659a6.ts.net/
+          - https://mgnetsolutions.com/
           - https://mgnts-stock-tracker.tail3659a6.ts.net/health
           - https://mgnts-note-app.tail3659a6.ts.net/health
     relabel_configs:
@@ -29,9 +29,9 @@ scrape_configs:
       - source_labels: [__param_target]
         regex: https://([^.]+)\..*
         target_label: site
-      # Display name only: "mgnts" alone reads too much like the mgntsdev container.
+      # Display name: the consulting site shows as mgnts-site, like the other two.
       - source_labels: [site]
-        regex: mgnts
+        regex: mgnetsolutions
         target_label: site
         replacement: mgnts-site
       - target_label: __address__
