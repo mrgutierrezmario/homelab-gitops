@@ -20,7 +20,7 @@ here can.
 |---|---|---|
 | `docker-exporter` | CPU, memory, network per container, from the Docker API (`docker stats` numbers) | 64 MB |
 | `node-exporter` | the Docker VM: CPU, memory, load, disk | 48 MB |
-| `blackbox` | the three public sites, through Funnel: up/down and response time | 48 MB |
+| `blackbox` | the three public sites — mgnetsolutions.com (Cloudflare) and the two apps' `/health` (Funnel): up/down and response time | 48 MB |
 | `prometheus` | scrapes every 30 s, keeps **7 days or 1 GB** | 384 MB |
 | `grafana` | one provisioned dashboard, *Mac mini — production* | 256 MB |
 

@@ -1,5 +1,9 @@
 # Uptime Kuma
 
+> **Stopped with the cluster** (2026-09-23). The four push monitors below
+> never received a heartbeat: their `pushUrl`s were never committed to the
+> charts. Wire them as part of the rebuild.
+
 `https://uptime.tail3659a6.ts.net` — tailnet only (see the Ingress comment
 in `uptime-kuma.yaml` before considering Funnel).
 

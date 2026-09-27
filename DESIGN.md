@@ -12,8 +12,10 @@ up on the current mini (Phase A, 6 GiB VM); all three apps in staging from
 restored bundles, public over Funnel, following `main` unattended, written
 up, re-restored weekly by a drill that smoke-tests itself, and watched by
 Uptime Kuma. **Phase 8 is written but switched off — it does not fit this
-VM**; it is the first thing to turn on after the 12 GiB rebuild. See
-`README.md`.
+VM**; it is the first thing to turn on after the 12 GiB rebuild. Meanwhile
+production is watched from outside the cluster: a small Prometheus +
+Grafana and the daily backup-age check run on the Mac itself (`mac/`). See
+`README.md` → "What runs today".
 
 ## 1. Why, in one paragraph
 
@@ -120,29 +122,35 @@ takes production and the VM is rebuilt at 12 GiB (`docs/OPERATIONS.md`).
 
 ```
 homelab-gitops/
-├── DESIGN.md
+├── README.md               # what runs today, the architecture, status
+├── DESIGN.md               # this file
+├── PLAN.md                 # the machines around it: new mini, NAS
 ├── bootstrap/              # one-time: the VM, k3s, Argo CD, the root app
-│   ├── lima.yaml           # the VM (memory is the one number that changes per phase)
+│   ├── lima.yaml           # the VM (read once, at creation — see OPERATIONS)
 │   ├── k3s.sh              # same install for a non-Lima box
 │   ├── argocd.sh           # helm template + apply, then the root app
 │   └── root-app.yaml       # app-of-apps pointing at apps/
 ├── apps/                   # Argo Applications, one per project × environment
-│   ├── staging/
-│   │   ├── insidertrack.yaml
-│   │   ├── insidertrack-mcp.yaml
-│   │   └── lecture-notes.yaml
-│   └── platform/           # argocd, sealed-secrets, tailscale-operator, image-updater
-│       └── values/         # values files shared with bootstrap (argocd.yaml)
-├── platform/               # config for platform components (not Applications,
-│   └── image-updater/      #   not charts): the ImageUpdater resource
+│   ├── staging/            # insidertrack, insidertrack-mcp, lecture-notes
+│   └── platform/           # argocd, sealed-secrets, tailscale-operator,
+│       │                   #   image-updater, uptime-kuma, observability
+│       └── values/         # values for argocd and kube-prometheus-stack
+├── platform/               # config for platform components that is not a chart:
+│   ├── image-updater/      #   the ImageUpdater resource
+│   └── uptime-kuma/        #   its manifests + the monitor list to recreate
 ├── charts/
 │   ├── insidertrack/       # Chart.yaml, templates/, values.yaml, values-staging.yaml
 │   ├── insidertrack-mcp/
 │   └── lecture-notes/
 ├── secrets/                # SealedSecret manifests only (safe to commit)
+├── mac/                    # runs on the Mac, not in the cluster:
+│   ├── backup-age-check.sh #   daily launchd check that backups still run
+│   ├── monitoring/         #   Prometheus + Grafana for the production containers
+│   └── rclone-*            #   the Drive client-ID runbook and script
 └── docs/
-    ├── OPERATIONS.md       # cluster runbook: reboot, upgrade k3s, restore a namespace, rotate a secret
-    └── restore-drill.md    # how staging proves the backups, monthly
+    ├── OPERATIONS.md       # cluster runbook: build, rebuild, day to day, restore, rotate
+    ├── restore-drill.md    # how staging proves the backups, weekly
+    └── incident-2026-09-23-staging-flapping.md
 ```
 
 ## 7. Changes to the three projects (small, listed so they stay small)
@@ -185,9 +193,9 @@ under `apps/platform/` — in this order:
 
 | Phase | What | Why | Cost |
 |---|---|---|---|
-| 7 — Uptime Kuma (1 day) | **done 2026-09-23** — `uptime.tail3659a6.ts.net`, tailnet only. Keyword monitors on both public URLs and `/mcp/health` (the apps answer 200 while `degraded`, so status codes alone would lie), push monitors for backup age and the weekly drill. The **backup-age check is a CronJob in each chart** — declarative, in git — because that was the one part worth not clicking | replaces the free third-party pinger with something you own. Its own config is SQLite on a PVC, not git: `platform/uptime-kuma/README.md` is the recovery list | ~0.1 GB |
-| 8 — Observability (a weekend) | **Prometheus + Grafana** written and committed 2026-09-23, **deliberately not enabled** — `apps/platform/observability.yaml` has no `automated` sync policy and says why. **Loki, Alloy and the apps' `/metrics` are not started**: they wait for somewhere to run. | today there is no metrics or log search at all; this is the thing listed next to Kubernetes in every job posting | ~1.5 GB — **and that is the problem.** The Phase A VM is 6 GiB / 4 vCPUs, already ~3.4 GB idle and ~5.4 GB with Whisper. Memory is the lesser issue: constant scraping is the same CPU contention that killed the Argo repo-server through its own health probes on 2026-09-23. **Blocked on the 12 GiB rebuild** (PLAN.md step 3) |
-| 9 — Restore drill as a `CronJob` (1 day) | **done 2026-09-23** — Sunday 13:00 UTC, both apps: same steps as the seed restore plus a `smoke` step that asks the running app whether it can serve the restored data. `restore.pushUrl` is the Uptime Kuma hook, wired in phase 7 | the monthly runbook item done automatically, forever; a backup that is restored weekly is a backup | — |
+| 7 — Uptime Kuma (1 day) | **done 2026-09-23** — `uptime.tail3659a6.ts.net`, tailnet only. Keyword monitors on both public URLs and `/mcp/health` (the apps answer 200 while `degraded`, so status codes alone would lie). Push monitors for backup age and the weekly drill were planned, but their hooks (`pushUrl` in each chart's values) were never committed, so they never received a heartbeat. The **backup-age check is a CronJob in each chart** — declarative, in git — because that was the one part worth not clicking | replaces the free third-party pinger with something you own. Its own config is SQLite on a PVC, not git: `platform/uptime-kuma/README.md` is the recovery list | ~0.1 GB |
+| 8 — Observability (a weekend) | **Prometheus + Grafana** written and committed 2026-09-23, **deliberately not enabled** — `apps/platform/observability.yaml` has no `automated` sync policy and says why. **Loki, Alloy and the apps' `/metrics` are not started**: they wait for somewhere to run. | there was no metrics or log search at all (since 2026-09-25 a small Prometheus + Grafana watches production from the Mac, `mac/monitoring/` — this is the in-cluster version); this is the thing listed next to Kubernetes in every job posting | ~1.5 GB — **and that is the problem.** The Phase A VM is 6 GiB / 4 vCPUs, already ~3.4 GB idle and ~5.4 GB with Whisper. Memory is the lesser issue: constant scraping is the same CPU contention that killed the Argo repo-server through its own health probes on 2026-09-23. **Blocked on the 12 GiB rebuild** (PLAN.md step 3) |
+| 9 — Restore drill as a `CronJob` (1 day) | **done 2026-09-23** — Sunday 13:00 UTC, both apps: same steps as the seed restore plus a `smoke` step that asks the running app whether it can serve the restored data. `restore.pushUrl` is the Uptime Kuma hook — left empty, see phase 7 | the monthly runbook item done automatically, forever; a backup that is restored weekly is a backup | — |
 | 10 — Self-hosted CI runner (a weekend) | GitHub Actions runner pods via the Actions Runner Controller; image builds happen here and push to GHCR; the "build candidate → deploy to staging → drill" pipeline lives on it | faster builds, no GitHub minutes, and ARC is a standard enterprise pattern | ~1 GB when busy |
 | 11 — Second Ollama (½ day) | native Ollama on the old mini as the *slow* model server: staging points at it, and overnight batch jobs (the daily brief) can use it so the new mini's GPU stays free for editing and lectures | the old mini's GPU is still a real GPU | ~5 GB while a model is loaded |
 | 12 — Registry pull-through cache (½ day) | `registry:2` mirror so staging pulls do not hit GHCR/Docker Hub every time | a component every real cluster has; makes rebuilds fast and offline-safe | ~0.2 GB |

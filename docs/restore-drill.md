@@ -96,11 +96,13 @@ Worth being blunt, because it is easy to feel covered and not be:
   worth looking at first, pin the PR's image by hand:
   `image.tag: main-<sha>` in that chart's `values-staging.yaml`, look,
   then revert the pin.
-- **Nothing tells you when it stops.** There is no alert on a stale
-  bundle or a failed Job today; noticing is manual. That is exactly what
-  DESIGN.md phases 7 and 9 add — Uptime Kuma watching backup age, and the
-  drill as a weekly `CronJob` that wipes staging, restores, runs the
-  smoke checks and reports.
+- **Nothing tells you when it stops.** Phase 9 made the drill a weekly
+  `CronJob`, and phase 7 added Uptime Kuma — but the push hooks that
+  would report the drill and backup age to Kuma (`pushUrl`) were never
+  committed, so a failed or skipped drill showed up only as a failed
+  CronJob. Wire them when the cluster is rebuilt. Until then, the Mac's
+  daily check (`mac/`) catches stale backups, and nothing proves they
+  restore.
 
 ## The weekly drill (phase 9)
 
@@ -130,10 +132,10 @@ that was off over the weekend produces no catch-up storm — it simply misses
 that week. `backoffLimit: 0`: one attempt, then the failure stands where it
 can be read.
 
-The drill hits `restore.pushUrl` when it passes, which is empty today and
-becomes an Uptime Kuma push monitor in phase 7 — at which point *not*
-running becomes visible too, which is the half a CronJob alone cannot give
-you.
+The drill hits `restore.pushUrl` when it passes. That is still empty in
+every chart — it was meant to become an Uptime Kuma push monitor in phase 7
+and never got wired — so *not* running is invisible until it is set, which
+is the half a CronJob alone cannot give you.
 
 ### What the schedule costs
 

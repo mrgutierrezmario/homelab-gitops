@@ -8,7 +8,7 @@ Kubernetes project itself; this is the bigger picture around it.
 
 | Machine | Today | End state |
 |---|---|---|
-| **Mac mini (current, 16 GB)** | everything: production, Ollama, backups, dev container | **staging cluster — that is its one job.** (Rollback for the first week after migration; then keep it only if project #4 goes ahead, otherwise sell it) |
+| **Mac mini (current, 16 GB)** | everything: production, Ollama, backups, dev container | **staging cluster — that is its one job.** (Rollback for the first week after migration; then keep it only if the staging cluster (this repo) goes ahead, otherwise sell it) |
 | **Mac mini M5 Pro (new, 48 GB, 10 GbE)** | — | video editing + production + Ollama + dev container |
 | **NAS (later)** | — | footage library + on-site backup tier for everything + restore source for staging |
 | Google Drive (rclone, encrypted) | off-site backups | unchanged — the copy that survives the house |
@@ -20,13 +20,15 @@ NAS holds the bulk data nothing else should hold.
 
 ## 2. What "production" is
 
-Two Docker Compose stacks with public HTTPS URLs via Tailscale Funnel, and
-one native process:
+Two app stacks with public HTTPS URLs via Tailscale Funnel, the business
+website, one native process, and the pieces that watch them:
 
 ```
 AI Lecture Notes   app (FastAPI + Whisper + UI) · Postgres · MinIO · Tailscale sidecar
 InsiderTrack       app (FastAPI + scrapers + UI) · Postgres · MCP server · Tailscale sidecar
-Ollama             native macOS process on the GPU, used by both stacks
+mgnts-site         static site + contact form · Tailscale · cloudflared (mgnetsolutions.com)
+Ollama             native macOS process on the GPU, used by both app stacks
+Monitoring         this repo's mac/: Prometheus + Grafana, the daily backup-age check
 ```
 
 Each stack has: `deploy/start.sh` (build + start), a nightly `backup.sh`
@@ -75,6 +77,11 @@ drill because it is real:
    move the dev container there (open the folder in VS Code), set
    FileVault off / auto-login / Docker at sign-in / key expiry disabled —
    the same reboot checklist the old one went through.
+   Then the rest of the Mac's jobs: `mgnts-site` (`deploy/start.sh`; copy
+   the Cloudflare tunnel credentials from `~/.cloudflared/` and its
+   `deploy/.env`, and start it only at the flip — while two copies of the
+   tunnel run, Cloudflare splits visitors between them), and this repo's
+   `mac/install.sh` and `mac/monitoring/start.sh`.
 7. **Do not wipe the old mini yet.** It is the rollback: if anything is
    wrong in the first week, stop the new stacks and rename the old nodes
    back. After a clean week, it is free.
@@ -97,7 +104,7 @@ Tailscale operator, and in it, *copies* of all three apps restored from
 the nightly bundles, on `…-staging` URLs. Every merge to `main` in any repo
 lands there automatically; production on the new mini moves only when a
 person edits a version number. **This is the only reason to keep the old
-mini.** If project #4 is dropped, sell it.
+mini.** If the staging cluster is dropped, sell it.
 
 ### Step 4 — the NAS, when the footage needs it
 
@@ -138,11 +145,11 @@ Nothing before step 4 needs the NAS to exist.
   time slows nothing you would notice.
 - **Dependabot merges a bump on Monday** → CI pushes an image → Argo on
   the old mini deploys it to staging within minutes → you glance at the
-  staging URL (or don't). Production is untouched until the monthly
-  rebuild, which now has a tested image behind it.
+  staging URL (or don't). Production is untouched until someone
+  runs its `deploy/start.sh` — on code staging has already run.
 - **03:00** → backups run on the new mini → local drive → Google Drive.
-  Staging restores from the same bundles, so it doubles as the monthly
-  restore drill without anyone running one.
+  Staging restores from the same bundles, and re-restores them weekly,
+  so it doubles as the restore drill without anyone running one.
 - **The new mini dies** → any machine (the old mini, a laptop) can run
   production from the Google Drive bundle in an hour (`restore.sh
   --from-remote latest`), the same way the migration was done.

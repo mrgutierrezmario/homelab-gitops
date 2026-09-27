@@ -4,3 +4,6 @@ secrets/*.yaml.unsealed
 
 # Local Claude Code harness settings (per-machine, not project config)
 .claude/settings.local.json
+
+# macOS
+.DS_Store

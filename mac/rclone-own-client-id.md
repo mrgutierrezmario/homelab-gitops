@@ -1,5 +1,10 @@
 # Giving rclone its own Google Drive client ID
 
+> **Status: done on this Mac** — `gdrive` and `gdrive-stock-tracker` use
+> their own client ID, and both nightly backups were current on
+> 2026-09-26. Keep this for a new machine. The cluster's sealed rclone
+> secrets predate the switch and must be re-sealed before a rebuild.
+
 **Why this is not optional.** Every Drive remote on this Mac uses rclone's
 *shared* OAuth client, and Google is retiring it during 2026 — rclone prints
 the warning on every run. When it stops working, `deploy/backup.sh` can no

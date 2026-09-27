@@ -48,6 +48,10 @@ does not cover. By hand, any time:
 mac/backup-age-check.sh --quiet
 ```
 
+Production's containers are also graphed from the Mac — Prometheus +
+Grafana in `mac/monitoring/` (dashboards only). Uptime Kuma went with the
+cluster.
+
 ## Build the cluster from nothing
 
 Order matters only once; after that Argo keeps it converged.
@@ -81,9 +85,10 @@ Done when `argocd app list` (or the UI) shows every app **Synced / Healthy**
    are already there — except the two rclone configs only the Mac can
    produce (`insidertrack-rclone`, `lecture-notes-rclone`;
    `secrets/README.md`). Until each is committed, that app's restore Job
-   fails after its deadline and the app waits. After a rebuild with the
-   sealing key restored, the committed ones still decrypt and nothing is
-   needed at all.
+   fails after its deadline and the app waits. **Re-seal both before the
+   next rebuild:** the committed ones were sealed before the Mac's Drive
+   remotes moved to their own client ID (`mac/rclone-own-client-id.md`),
+   so they carry the retired shared client and an old token.
 
 Whole thing, from `limactl start` to three apps serving restored data:
 about half an hour, most of it image pulls and the audio mirror.
@@ -177,6 +182,11 @@ Production is untouched by all of this: it builds from source on the Mac
 
 ## Monitoring (phase 7)
 
+*Stopped with the cluster.* While it is down, production is graphed by
+`mac/monitoring/` and backup age is checked by `mac/`. When it comes back,
+note that the four push hooks below were never wired — `pushUrl` is empty
+in every chart — so set them as part of the rebuild.
+
 `https://uptime.tail3659a6.ts.net` — Uptime Kuma, tailnet only. What it
 watches and how to rebuild it after a lost PVC:
 `platform/uptime-kuma/README.md`.
@@ -199,6 +209,9 @@ values. Without it they still run and still fail visibly as failed
 CronJobs — they are just not on a dashboard.
 
 ## Turning observability on (after the 12 GiB rebuild)
+
+This is the in-cluster stack. It is separate from `mac/monitoring/`, which
+watches production on whichever Mac runs it; the two do not share config.
 
 `apps/platform/observability.yaml` is deliberately manual-sync. Before
 enabling it, measure — the reason it is off is capacity, so the check is
@@ -262,13 +275,12 @@ that endpoint reports data-source failures.
   it. **Restoring the database without the audio is not a supported
   combination** — keep `restore.audio: true` whenever the bundle's
   lectures are meant to be openable.
-- **rclone's shared Google Drive client_id is being retired during 2026**
-  (rclone prints a NOTICE on every run). This hits production's nightly
-  `backup.sh` on the Mac, not just the staging restore. Fix in the
-  InsiderTrack repo: make an own client_id
-  (https://rclone.org/drive/#making-your-own-client-id), `rclone config
-  update gdrive-stock-tracker client_id … client_secret …`, then re-seal
-  `insidertrack-rclone` here. Lecture Notes' `gdrive` remote likewise.
+- ~~rclone's shared Google Drive client_id is being retired during 2026~~
+  — **done on the Mac** (verified 2026-09-26: `gdrive` and
+  `gdrive-stock-tracker` have their own client ID, and both nightly
+  backups are current). Runbook: `mac/rclone-own-client-id.md`. Still
+  open: re-seal `insidertrack-rclone` and `lecture-notes-rclone` here
+  before the cluster is rebuilt (step 6 above).
 
 ## Restore a namespace (re-seed staging from last night's backup)
 
