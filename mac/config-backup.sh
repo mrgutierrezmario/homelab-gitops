@@ -6,6 +6,8 @@
 #   ~/.cloudflared                 Cloudflare tunnel credentials and configs
 #   mgnts-site/deploy/.env         the business site's mail + tunnel settings
 #   mac/monitoring/.env            Grafana's admin password
+#   insidertrack, lecture-note-app deploy/.env and app/ui_backend/.env
+#                                  the apps' API keys, mail passwords, secrets
 #
 # Tarred, then uploaded through an rclone *crypt* remote, so it is encrypted
 # before it leaves the machine (same passphrase as the InsiderTrack backups).
@@ -26,6 +28,10 @@ PATHS=(
   "$HOME/.cloudflared"
   "$HOME/projects/mgnts-site/deploy/.env"
   "$HOME/projects/homelab-gitops/mac/monitoring/.env"
+  "$HOME/projects/insidertrack/deploy/.env"
+  "$HOME/projects/insidertrack/app/ui_backend/.env"
+  "$HOME/projects/lecture-note-app/deploy/.env"
+  "$HOME/projects/lecture-note-app/app/ui_backend/.env"
 )
 
 log() { echo "[config-backup $(date '+%Y-%m-%d %H:%M:%S')] $*"; }
