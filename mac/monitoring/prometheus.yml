@@ -13,7 +13,8 @@ scrape_configs:
   - job_name: node
     static_configs: [{ targets: ["node-exporter:9100"] }]
 
-  # The public sites, probed the way a visitor reaches them (through Funnel).
+  # The public sites, probed the way a visitor reaches them: Funnel for the
+  # ts.net names, Cloudflare Tunnel for the mgnetsolutions.com ones.
   - job_name: sites
     metrics_path: /probe
     params: { module: [http_2xx] }
@@ -22,6 +23,7 @@ scrape_configs:
       - targets:
           - https://mgnetsolutions.com/
           - https://mgnts-stock-tracker.tail3659a6.ts.net/health
+          - https://insidertrack.mgnetsolutions.com/health
           - https://mgnts-note-app.tail3659a6.ts.net/health
     relabel_configs:
       - source_labels: [__address__]
@@ -34,5 +36,10 @@ scrape_configs:
         regex: mgnetsolutions
         target_label: site
         replacement: mgnts-site
+      # InsiderTrack's second route (Cloudflare); the Funnel one stays mgnts-stock-tracker.
+      - source_labels: [site]
+        regex: insidertrack
+        target_label: site
+        replacement: insidertrack-cloudflare
       - target_label: __address__
         replacement: blackbox:9115

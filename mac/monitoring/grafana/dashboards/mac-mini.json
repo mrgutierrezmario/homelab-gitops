@@ -92,7 +92,7 @@
      ]
     }
    },
-   "description": "Probed from the mini over the public internet (Cloudflare for mgnetsolutions.com, Tailscale Funnel for the apps). Alerts come from UptimeRobot, not here."
+   "description": "Probed from the mini over the public internet (Cloudflare for the mgnetsolutions.com names, Tailscale Funnel for the ts.net ones). Alerts come from UptimeRobot, not here."
   },
   {
    "id": 2,
