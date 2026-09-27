@@ -77,9 +77,10 @@ drill because it is real:
    move the dev container there (open the folder in VS Code), set
    FileVault off / auto-login / Docker at sign-in / key expiry disabled —
    the same reboot checklist the old one went through.
-   Then the rest of the Mac's jobs: `mgnts-site` (`deploy/start.sh`; copy
-   the Cloudflare tunnel credentials from `~/.cloudflared/` and its
-   `deploy/.env`, and start it only at the flip — while two copies of the
+   Then the rest of the Mac's jobs: restore `~/.cloudflared` and the stack
+   `.env`s from the config backup (`mac/README.md` → "Config backup"), then
+   `mgnts-site` (`deploy/start.sh` — start it, and each stack's Cloudflare
+   tunnel, only at the flip — while two copies of the
    tunnel run, Cloudflare splits visitors between them), and this repo's
    `mac/install.sh` and `mac/monitoring/start.sh`.
 7. **Do not wipe the old mini yet.** It is the rollback: if anything is

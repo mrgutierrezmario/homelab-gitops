@@ -26,10 +26,11 @@ MAX_AGE_DAYS="${MAX_AGE_DAYS:-1}"
 ENV_FILE="${ENV_FILE:-$HOME/projects/insidertrack/deploy/.env}"
 QUIET=0; [ "${1:-}" = "--quiet" ] && QUIET=1
 
-# remote:bundle-name-prefix
+# remote:folder:bundle-name-prefix
 REMOTES=(
-  "stock-tracker-backup:stock-tracker"
-  "lecture-backup:lecture-notes"
+  "stock-tracker-backup:daily:stock-tracker"
+  "lecture-backup:daily:lecture-notes"
+  "stock-tracker-backup:mac-config:mac-config"   # config-backup.sh
 )
 
 log() { echo "[backup-age $(date '+%Y-%m-%d %H:%M:%S')] $*"; }
@@ -66,18 +67,18 @@ send_mail() {
 
 problems=""
 for entry in "${REMOTES[@]}"; do
-  remote=${entry%%:*}; prefix=${entry##*:}
-  listing=$(rclone lsf "${remote}:daily" --files-only 2>&1)
+  remote=${entry%%:*}; rest=${entry#*:}; folder=${rest%%:*}; prefix=${rest#*:}
+  listing=$(rclone lsf "${remote}:${folder}" --files-only 2>&1)
   if [ $? -ne 0 ]; then
-    log "$remote: CANNOT READ — $listing"
-    problems+="$remote: cannot read the remote. $listing"$'\n'
+    log "$remote:$folder: CANNOT READ — $listing"
+    problems+="$remote:$folder: cannot read the remote. $listing"$'\n'
     continue
   fi
   latest=$(printf '%s\n' "$listing" \
     | grep -E "^${prefix}-[0-9]{4}-[0-9]{2}-[0-9]{2}\.tar\.gz$" | sort | tail -1)
   if [ -z "$latest" ]; then
-    log "$remote: NO BUNDLES at all"
-    problems+="$remote: no bundles found in daily/."$'\n'
+    log "$remote:$folder: NO BUNDLES at all"
+    problems+="$remote:$folder: no bundles found in $folder/."$'\n'
     continue
   fi
   day=${latest#"$prefix"-}; day=${day%.tar.gz}
@@ -87,8 +88,8 @@ for entry in "${REMOTES[@]}"; do
   made=$(date -j -f "%Y-%m-%d %H:%M:%S" "$day 00:00:00" "+%s" 2>/dev/null)
   today=$(date -j -f "%Y-%m-%d %H:%M:%S" "$(date '+%Y-%m-%d') 00:00:00" "+%s" 2>/dev/null)
   if [ -z "$made" ] || [ -z "$today" ]; then
-    log "$remote: could not parse the date in $latest"
-    problems+="$remote: could not parse the date in $latest."$'\n'
+    log "$remote:$folder: could not parse the date in $latest"
+    problems+="$remote:$folder: could not parse the date in $latest."$'\n'
     continue
   fi
   days=$(( ( today - made ) / 86400 ))
@@ -98,10 +99,10 @@ for entry in "${REMOTES[@]}"; do
     *) when="$days days ago" ;;
   esac
   if [ "$days" -gt "$MAX_AGE_DAYS" ]; then
-    log "$remote: STALE — newest is $latest ($when)"
-    problems+="$remote: newest backup is $latest, made $when."$'\n'
+    log "$remote:$folder: STALE — newest is $latest ($when)"
+    problems+="$remote:$folder: newest backup is $latest, made $when."$'\n'
   else
-    log "$remote: ok — $latest ($when)"
+    log "$remote:$folder: ok — $latest ($when)"
   fi
 done
 
@@ -113,6 +114,7 @@ $problems
 The backups themselves run at 03:00 from launchd:
   com.mgnetwork.stock-tracker-backup
   com.mgnetwork.lecture-backup
+  com.mgnetwork.config-backup   (03:30, this repo's mac/config-backup.sh)
 
 Check with:  launchctl list | grep mgnetwork
 Logs:        <repo>/deploy/state/backups/backup.log

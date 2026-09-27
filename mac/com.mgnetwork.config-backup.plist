@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Nightly encrypted off-site copy of the Mac's own config (03:30, after the
+     apps' 03:00 backups). If the Mac is asleep then, the job runs when it
+     wakes. Installed by mac/install.sh, which replaces __REPO__ and __HOME__.
+     Log: __HOME__/Library/Logs/config-backup.log -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.mgnetwork.config-backup</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/mac/config-backup.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- launchd jobs get a minimal PATH; rclone lives here. -->
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>__HOME__</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/config-backup.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/config-backup.log</string>
+</dict>
+</plist>

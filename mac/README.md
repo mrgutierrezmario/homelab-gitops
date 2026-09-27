@@ -1,8 +1,9 @@
 # mac/
 
 The parts of this repo that run **on the Mac** rather than in the cluster:
-the daily backup-age check (below), Prometheus + Grafana for the production
-containers (`monitoring/`), and the rclone client-ID runbook.
+the nightly config backup and the daily backup-age check (below), Prometheus
++ Grafana for the production containers (`monitoring/`), and the rclone
+client-ID runbook.
 
 While the staging cluster ran, a CronJob in it checked daily that the
 off-site backups were still being made. That cluster was retired from this
@@ -20,7 +21,8 @@ when it silently **stops running**.
 mac/install.sh
 ```
 
-Runs daily at 09:30 and emails only when something is wrong. It reuses the
+Installs both launchd jobs and runs each once. The age check runs daily at
+09:30 and emails only when something is wrong. It reuses the
 Gmail app password already in `insidertrack/deploy/.env` — nothing new to
 store. Uninstall with `mac/install.sh --remove`.
 
@@ -31,6 +33,27 @@ during 2026. Both Drive remotes on this Mac now use their own client ID
 (verified 2026-09-26, backups current). Keep the runbook for a new machine
 (`PLAN.md` step 2), and re-seal the two rclone secrets before the cluster
 is rebuilt (`docs/OPERATIONS.md`).
+
+## Config backup
+
+`config-backup.sh` (launchd, 03:30) copies what the apps' own bundles do not
+carry: `~/.cloudflared` (every Cloudflare tunnel's credentials and config),
+mgnts-site's `deploy/.env` and `monitoring/.env`. It tars them and uploads
+through the `stock-tracker-backup:` crypt remote to `mac-config/`, so the
+copy is encrypted before it leaves the Mac (the InsiderTrack backup
+passphrase opens it). Keeps 30. The age check below watches it like the app
+backups. Restore-tested 2026-09-27.
+
+Restore on a new machine, once rclone has the `stock-tracker-backup` remote
+(`insidertrack/deploy/restore.sh` sets that up):
+
+```sh
+mac/config-backup.sh --list                                   # pick a date
+rclone copyto stock-tracker-backup:mac-config/mac-config-YYYY-MM-DD.tar.gz /tmp/c.tgz
+tar -xzf /tmp/c.tgz -C ~ && rm /tmp/c.tgz                     # paths are relative to ~
+```
+
+Then each stack's `deploy/start.sh` finds its tunnel again.
 
 ## Check it by hand any time
 

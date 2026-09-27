@@ -19,7 +19,8 @@ itself:
 |---|---|---|
 | Production: InsiderTrack + MCP, Lecture Notes, mgnetsolutions.com | Docker Compose on the Mac, in each app's own repo | running |
 | Nightly encrypted off-site backups (`backup.sh` → Google Drive) | launchd, in each app's repo | running; rclone has its own Drive client ID (verified 2026-09-26) |
-| Daily backup-age check | `mac/` — launchd, 09:30 | running |
+| Nightly config backup (tunnel credentials, stack `.env`s the app bundles don't carry) | `mac/config-backup.sh` — launchd, 03:30, encrypted to Drive | running |
+| Daily backup-age check (app bundles and the config backup) | `mac/` — launchd, 09:30 | running |
 | Prometheus + Grafana for the production containers | `mac/monitoring/` — Grafana at `grafana.tail3659a6.ts.net` (tailnet only) | running |
 | Staging cluster: k3s, Argo CD, Image Updater, the three apps | `bootstrap/`, `apps/`, `charts/` | **stopped** — comes back on the dedicated mini |
 | Uptime Kuma, weekly restore drill, in-cluster backup-age CronJobs | inside the cluster | **stopped** with it |
