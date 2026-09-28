@@ -37,10 +37,8 @@ is rebuilt (`docs/OPERATIONS.md`).
 ## Config backup
 
 `config-backup.sh` (launchd, 03:30) copies what the apps' own bundles do not
-carry: `~/.cloudflared` (every Cloudflare tunnel's credentials and config),
-mgnts-site's `deploy/.env`, `monitoring/.env`, and InsiderTrack's and
-Lecture Notes' `deploy/.env` and `app/ui_backend/.env` (API keys, mail
-passwords, app secrets). It tars them and uploads
+carry: the tunnel config and each stack's settings files (the list is `PATHS`
+in the script). It tars them and uploads
 through the `stock-tracker-backup:` crypt remote to `mac-config/`, so the
 copy is encrypted before it leaves the Mac (the InsiderTrack backup
 passphrase opens it). Keeps 30. The age check below watches it like the app

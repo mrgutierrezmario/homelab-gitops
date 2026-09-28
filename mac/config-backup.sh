@@ -1,13 +1,8 @@
 #!/bin/bash
-# Off-site copy of the Mac's own configuration — the files the apps' nightly
-# bundles do not carry, without which a restored machine comes back with its
-# data but not its public addresses:
-#
-#   ~/.cloudflared                 Cloudflare tunnel credentials and configs
-#   mgnts-site/deploy/.env         the business site's mail + tunnel settings
-#   mac/monitoring/.env            Grafana's admin password
-#   insidertrack, lecture-note-app deploy/.env and app/ui_backend/.env
-#                                  the apps' API keys, mail passwords, secrets
+# Off-site copy of the Mac's own configuration: the tunnel config and each
+# stack's settings files (PATHS below), which the apps' nightly bundles do not
+# carry. Without them a restored machine comes back with its data but not its
+# public addresses.
 #
 # Tarred, then uploaded through an rclone *crypt* remote, so it is encrypted
 # before it leaves the machine (same passphrase as the InsiderTrack backups).

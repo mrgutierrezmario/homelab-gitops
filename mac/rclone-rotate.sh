@@ -12,19 +12,22 @@
 set -uo pipefail
 
 REMOTES=(gdrive-stock-tracker gdrive)
-CRYPT=(stock-tracker-backup lecture-backup keystore-vault)
+# Every encrypted remote in this machine's rclone config, whatever it holds.
+CRYPT=()
+while IFS= read -r r; do CRYPT+=("${r%:}"); done < <(rclone listremotes --type crypt)
 
 verify() {
   echo
   echo "── Checking every remote still works ──"
   local bad=0
   for c in "${CRYPT[@]}"; do
-    if [ "$c" = keystore-vault ]; then
-      n=$(rclone ls "$c:" 2>/dev/null | wc -l | tr -d ' ')
-      [ "${n:-0}" -gt 0 ] && echo "  OK   $c: $n files" || { echo "  FAIL $c: nothing listed"; bad=1; }
+    # Backup remotes keep dated copies under daily/; any other just has to list.
+    newest=$(rclone lsf "$c:daily" 2>/dev/null | sort | tail -1)
+    if [ -n "$newest" ]; then
+      echo "  OK   $c: newest is $newest"
     else
-      newest=$(rclone lsf "$c:daily" 2>/dev/null | sort | tail -1)
-      [ -n "$newest" ] && echo "  OK   $c: newest is $newest" || { echo "  FAIL $c: nothing listed"; bad=1; }
+      n=$(rclone lsf -R "$c:" 2>/dev/null | wc -l | tr -d ' ')
+      [ "${n:-0}" -gt 0 ] && echo "  OK   $c: $n entries" || { echo "  FAIL $c: nothing listed"; bad=1; }
     fi
   done
   echo

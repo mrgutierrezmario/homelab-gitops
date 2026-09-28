@@ -17,11 +17,11 @@ two Drive remotes:
 
 | Remote | Used by |
 |---|---|
-| `gdrive-stock-tracker` | InsiderTrack backups, and `keystore-vault` on top of it |
+| `gdrive-stock-tracker` | InsiderTrack backups |
 | `gdrive` | Lecture Notes backups |
 | `stock-tracker-backup` | crypt over `gdrive-stock-tracker` |
 | `lecture-backup` | crypt over `gdrive` |
-| `keystore-vault` | crypt over `gdrive-stock-tracker` — the Android signing keys |
+| any other crypt remote | layered on one of the Drive remotes the same way |
 
 Only the two Drive remotes need changing; the crypt remotes inherit it and
 their passphrases are untouched.
@@ -81,16 +81,15 @@ Rerun `reconnect` and answer `n`.
 
 Pasting `rclone config show` output anywhere shares a live `refresh_token`
 — that alone is ongoing access to everything rclone created in the Drive,
-which here means both backup folders and the keystore vault. `client_secret`
+which here means every folder the backups use. `client_secret`
 is less sensitive (desktop OAuth clients are not really secret) but rotate
 both together:
 
 1. https://myaccount.google.com/connections → remove the connection. **It is
-   not listed as "rclone"** — it carries the name from the OAuth consent
-   screen, currently **"Lecture App rclone backups"**. One entry covers all
-   three remotes (`gdrive`, `gdrive-stock-tracker`, and `keystore-vault` on
-   top of it), so removing it revokes everything and re-authorising restores
-   everything. This is the step that actually kills the refresh token.
+   not listed as "rclone"** — it carries the app name you gave the OAuth
+   consent screen. One entry covers every remote (both Drive remotes and the
+   crypt remotes on top of them), so removing it revokes everything and
+   re-authorising restores everything. This is the step that actually kills the refresh token.
 2. https://console.cloud.google.com/apis/credentials → the OAuth client →
    **Add secret** (newer consoles have no "Reset"). Copy the new value.
 3. Rerun step 2 above with the new secret, `reconnect` both remotes, confirm
@@ -107,7 +106,7 @@ The warning should be gone, and every remote should still list:
 ```sh
 rclone lsf stock-tracker-backup:daily | sort | tail -2
 rclone lsf lecture-backup:daily      | sort | tail -2
-rclone ls  keystore-vault:
+mac/rclone-rotate.sh --verify        # every crypt remote, including any not listed here
 mac/backup-age-check.sh --quiet
 ```
 
