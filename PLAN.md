@@ -1,14 +1,16 @@
 # The home infrastructure plan
 
 Where everything runs today, where it is going, and how it gets there —
-written 2026-09-20 so the decisions are in one place. `DESIGN.md` covers the
+written 2026-09-20 so the decisions are in one place, updated 2026-09-28
+for what changed since (custom domains through Cloudflare, Garage in place
+of MinIO, the Mac config backup, the staging cluster's retirement). `DESIGN.md` covers the
 Kubernetes project itself; this is the bigger picture around it.
 
 ## 1. The machines
 
 | Machine | Today | End state |
 |---|---|---|
-| **Mac mini (current, 16 GB)** | everything: production, Ollama, backups, dev container | **staging cluster — that is its one job.** (Rollback for the first week after migration; then keep it only if the staging cluster (this repo) goes ahead, otherwise sell it) |
+| **Mac mini (current, 16 GB)** | everything: production, Ollama, backups, monitoring, dev container. At its limit: heavy swap under normal load (2026-09-26), and the staging VM starved production of CPU (2026-09-23), so the cluster is retired until this box is free | **staging cluster — that is its one job.** (Rollback for the first week after migration; then keep it only if the staging cluster (this repo) goes ahead, otherwise sell it) |
 | **Mac mini M5 Pro (new, 48 GB, 10 GbE)** | — | video editing + production + Ollama + dev container |
 | **NAS (later)** | — | footage library + on-site backup tier for everything + restore source for staging |
 | Google Drive (rclone, encrypted) | off-site backups | unchanged — the copy that survives the house |
@@ -20,15 +22,21 @@ NAS holds the bulk data nothing else should hold.
 
 ## 2. What "production" is
 
-Two app stacks with public HTTPS URLs via Tailscale Funnel, the business
-website, one native process, and the pieces that watch them:
+Two app stacks and the business website, each with public HTTPS
+addresses, one native process, and the pieces that watch and back them up.
+Public traffic arrives only through outbound tunnels: a custom domain via
+Cloudflare Tunnel, and the original Tailscale Funnel address. Nothing on the
+home router is forwarded.
 
 ```
-AI Lecture Notes   app (FastAPI + Whisper + UI) · Postgres · MinIO · Tailscale sidecar
-InsiderTrack       app (FastAPI + scrapers + UI) · Postgres · MCP server · Tailscale sidecar
-mgnts-site         static site + contact form · Tailscale · cloudflared (mgnetsolutions.com)
+AI Lecture Notes   app (FastAPI + Whisper + UI) · Postgres · Garage (S3) · Tailscale sidecar · Cloudflare tunnel
+InsiderTrack       app (FastAPI + scrapers + UI) · Postgres · MCP server · Tailscale sidecar · Cloudflare tunnel
+mgnts-site         static site + contact form · Tailscale · Cloudflare tunnel (mgnetsolutions.com)
 Ollama             native macOS process on the GPU, used by both app stacks
-Monitoring         this repo's mac/: Prometheus + Grafana, the daily backup-age check
+Monitoring         this repo's mac/: Prometheus + Grafana, the daily backup-age check;
+                   an external uptime monitor watches every public address
+Mac config         mac/config-backup.sh (nightly): the tunnel and stack settings
+                   the app bundles don't carry, encrypted off-site
 ```
 
 Each stack has: `deploy/start.sh` (build + start), a nightly `backup.sh`
@@ -62,7 +70,7 @@ drill because it is real:
 1. On the new mini, clone the two repos and the MCP repo.
 2. `deploy/restore.sh --from-remote latest` in each app repo: pulls last
    night's bundle from Google Drive, recreates the stack with the same
-   passwords and settings, restores the database and audio. Both stacks
+   passwords and settings, restores the database and the audio in Garage. Both stacks
    come up on the new machine with **temporary Tailscale names**
    (`…-new`), so the old ones keep serving.
 3. Install Ollama natively, pull `llama3` and `llava`. Point `deploy/.env`
@@ -70,19 +78,25 @@ drill because it is real:
 4. Compare: open both new URLs, check History / Data sources / the MCP.
    Run both machines in parallel for a day; the old one is still the one
    the public hits.
-5. Flip: stop the old stacks, rename the new Tailscale nodes to the real
-   names (`mgnts-note-app`, `mgnts-stock-tracker`). The public URLs now
-   point at the new mini. Certificates and Funnel follow the name.
-6. Re-register the nightly backups on the new mini (`backup-setup.sh`),
-   move the dev container there (open the folder in VS Code), set
-   FileVault off / auto-login / Docker at sign-in / key expiry disabled —
-   the same reboot checklist the old one went through.
-   Then the rest of the Mac's jobs: restore `~/.cloudflared` and the stack
-   `.env`s from the config backup (`mac/README.md` → "Config backup"), then
-   `mgnts-site` (`deploy/start.sh` — start it, and each stack's Cloudflare
-   tunnel, only at the flip — while two copies of the
-   tunnel run, Cloudflare splits visitors between them), and this repo's
-   `mac/install.sh` and `mac/monitoring/start.sh`.
+5. Flip: stop the old stacks **and their Cloudflare tunnels**, rename the
+   new Tailscale nodes to the real names (`mgnts-note-app`,
+   `mgnts-stock-tracker`), then start the tunnels on the new mini. Funnel
+   addresses and certificates follow the Tailscale name; the custom domains
+   follow the tunnel credentials, so DNS needs no change. Never run a
+   tunnel on both machines at once: Cloudflare splits visitors between
+   them.
+6. Before the flip, restore the Mac config from its backup
+   (`mac/README.md` → "Config backup"): it brings the tunnel settings and
+   every stack's settings files. Then re-register the nightly backups on
+   the new mini (`backup-setup.sh`), move the dev container there (open the
+   folder in VS Code), and go through the same setup checklist the old one
+   did, so it comes back by itself after a reboot and has the same macOS
+   security settings.
+   Then the rest of the Mac's jobs: `mgnts-site` (`deploy/start.sh`, at
+   the flip, like the other tunnels), and this repo's `mac/install.sh`
+   (backup-age check, config backup) and `mac/monitoring/start.sh`.
+   The external uptime monitor and the Prometheus probes watch the public
+   addresses, so they carry on unchanged.
 7. **Do not wipe the old mini yet.** It is the rollback: if anything is
    wrong in the first week, stop the new stacks and rename the old nodes
    back. After a clean week, it is free.
@@ -94,11 +108,13 @@ flip.
 
 ### Step 3 — the old mini becomes the staging box
 
-*Update 2026-09-21: the staging cluster already runs on this mini, in a
-6 GB VM next to production (DESIGN.md phases 1–4). Step 3 is therefore a
-resize, not a build: `limactl delete`, 12 GB in `bootstrap/lima.yaml`,
-`limactl start`, `bootstrap/argocd.sh` — `docs/OPERATIONS.md` "Rebuild on
-the dedicated mini". Ten minutes plus image pulls.*
+*Update 2026-09-28: the cluster ran in a 6 GB VM next to production
+(DESIGN.md phases 1–4) until 2026-09-23, when it starved production of CPU.
+The VM was retired (`mac/README.md`), so step 3 is a rebuild from this repo
+once the old mini is free: 12 GB in `bootstrap/lima.yaml`, `limactl start`,
+`bootstrap/argocd.sh`, then restore the backed-up sealing key or re-seal
+the secrets (`secrets/README.md`) — `docs/OPERATIONS.md` "Rebuild on the dedicated
+mini". Nothing here happens before the migration.*
 
 On the old mini: a Linux VM with ~12 GB running k3s + Argo CD + the
 Tailscale operator, and in it, *copies* of all three apps restored from
@@ -126,12 +142,12 @@ Nothing before step 4 needs the NAS to exist.
 
 ```
                       internet / phone / claude.ai
-                                 │  Tailscale Funnel (HTTPS)
+                                 │  Cloudflare Tunnel · Tailscale Funnel (HTTPS, outbound only)
         ┌────────────────────────┼─────────────────────────┐
         │  New mini (M5 Pro)     │                         │
         │  ┌──────────────┐  ┌───┴──────────┐  ┌────────┐  │      ┌──────────────┐
         │  │ Lecture Notes│  │ InsiderTrack │  │  MCP   │  │      │ Old mini      │
-        │  │ app·pg·minio │  │ app·pg       │◄─┤        │  │      │ k3s + Argo CD │
+        │  │ app·pg·garage│  │ app·pg       │◄─┤        │  │      │ k3s + Argo CD │
         │  └──────┬───────┘  └──────┬───────┘  └────────┘  │      │ staging copies│
         │         └──────┬──────────┘                      │      │ of all three  │
         │           Ollama (GPU)      dev container         │      │ (…-staging)   │
@@ -144,11 +160,12 @@ Nothing before step 4 needs the NAS to exist.
 - **You record a lecture / someone opens InsiderTrack** → the new mini
   serves it. Faster Whisper, faster Ollama; a video export at the same
   time slows nothing you would notice.
-- **Dependabot merges a bump on Monday** → CI pushes an image → Argo on
+- **Dependabot merges a bump** (new releases wait 7 days first) → CI pushes an image → Argo on
   the old mini deploys it to staging within minutes → you glance at the
   staging URL (or don't). Production is untouched until someone
   runs its `deploy/start.sh` — on code staging has already run.
-- **03:00** → backups run on the new mini → local drive → Google Drive.
+- **03:00** → backups run on the new mini → local drive → Google Drive;
+  **03:30** the Mac config backup follows.
   Staging restores from the same bundles, and re-restores them weekly,
   so it doubles as the restore drill without anyone running one.
 - **The new mini dies** → any machine (the old mini, a laptop) can run
@@ -174,6 +191,7 @@ Nothing before step 4 needs the NAS to exist.
 |---|---|
 | The migration breaks something | the old mini keeps running; flip the names back |
 | A backup bundle does not restore | you find out in step 2 on hardware you can afford to fail on — that is the point of doing it this way |
+| A Cloudflare tunnel running on both minis | visitors are split between them; stop the old tunnels before starting the new ones (step 2, point 5) |
 | Both minis on one power strip / one router | true single points of failure for a home lab; Google Drive is the answer for data, and accepting an outage is the answer for uptime |
 | Editing and a lecture at the same time | avoid exporting during class; the browser buffers 30 min if Whisper lags |
 | The staging cluster eats the old mini's RAM | it has nothing else to run; 12 GB in the VM is 3× the budget |
