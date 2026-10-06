@@ -16,3 +16,14 @@ modules:
       valid_status_codes: [401]
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
+  # InsiderTrack's /health with a data check: fails while any recent weekday
+  # has no signal snapshot (the daily 07:00 job silently saved nothing
+  # 2026-09-30 → 10-05). The alert waits 8 h, because "today" counts as a
+  # gap from midnight until that 07:00 run.
+  http_snapshot_gaps:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      fail_if_body_matches_regexp: ['"snapshot_gaps_14d":\s*[1-9]']

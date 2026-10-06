@@ -4,7 +4,7 @@ A small Prometheus + Grafana for the production containers on this Mac —
 for **looking** at how things behave, plus one alert. **UptimeRobot** alerts
 from outside the house, so it also notices when this whole Mac (or its
 internet) is down; nothing here can. **Grafana** emails `ALERT_EMAIL_TO`
-when any probed site fails for 5 minutes while the Mac is up — the case
+when any probed site fails for 5 minutes while the Mac is up, and when InsiderTrack's `/health` reports a missing daily signal snapshot for 8 hours (a data check, not uptime) — the case
 where a stack is broken but the machine is fine (2026-10-05: lecture-note-app
 stayed down six hours after the internet came back). The rule, contact point
 and policy are provisioned from `grafana/provisioning/alerting/`; SMTP

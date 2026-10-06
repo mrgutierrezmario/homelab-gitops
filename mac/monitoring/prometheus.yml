@@ -59,6 +59,22 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox:9115
 
+  # InsiderTrack data freshness, not uptime: the probe fails while
+  # /health reports snapshot gaps. Its own alert rule (snapshot-gaps); the
+  # site-down rule and `stacks` leave job="snapshots" out.
+  - job_name: snapshots
+    metrics_path: /probe
+    params: { module: [http_snapshot_gaps] }
+    scrape_interval: 5m
+    static_configs:
+      - targets: [https://mgnts-stock-tracker.tail3659a6.ts.net/health]
+        labels: { site: insidertrack-snapshots }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox:9115
+
   # Sites whose addresses are kept out of this public repo: one file_sd file
   # per site in ./private/ (gitignored), e.g.
   #   - targets: [https://example.com/health]

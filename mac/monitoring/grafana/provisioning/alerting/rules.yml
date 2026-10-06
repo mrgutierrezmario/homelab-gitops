@@ -16,7 +16,7 @@ groups:
             datasourceUid: prometheus
             model:
               refId: A
-              expr: min by (site) (probe_success)
+              expr: min by (site) (probe_success{job!="snapshots"})
               instant: true
           - refId: C
             datasourceUid: __expr__
@@ -36,3 +36,37 @@ groups:
             The blackbox probe from the Mac mini is failing. Check that stack's
             `docker compose logs watchdog` first: it restarts tailscale, the
             app and cloudflared on its own and logs what it did.
+
+      - uid: snapshot-gaps
+        title: InsiderTrack snapshots missing
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: min(probe_success{job="snapshots"})
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        # "Today" is a gap from midnight until the 07:00 ET snapshot, so only
+        # a gap that outlasts that window is real (a failed 07:00 run alerts
+        # by ~15:00).
+        for: 8h
+        noDataState: OK
+        execErrState: Alerting
+        annotations:
+          summary: "InsiderTrack has weekdays with no signal snapshot"
+          description: >-
+            /health reports snapshot_gaps_14d > 0: the daily 07:00 ET snapshot
+            job saved nothing. Check `stacks logs insider app` for
+            "Snapshotted" / "Could not compute" and the outcome_snapshot job.
+            A restart backfills missing days (flagged is_backfilled).
+
