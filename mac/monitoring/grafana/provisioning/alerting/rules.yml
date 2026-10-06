@@ -1,0 +1,38 @@
+# Email when a public site stops answering while this Mac is up. UptimeRobot
+# still covers the Mac (or its internet) being down, which nothing here can.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: sites
+    folder: Alerts
+    interval: 1m
+    rules:
+      - uid: site-down
+        title: Site down
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: { from: 300, to: 0 }
+            datasourceUid: prometheus
+            model:
+              refId: A
+              expr: min by (site) (probe_success)
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+        for: 5m
+        # No probe results at all (blackbox or Prometheus down) is not "fine".
+        noDataState: Alerting
+        execErrState: Alerting
+        annotations:
+          summary: "{{ $labels.site }} has not answered for 5 minutes"
+          description: >-
+            The blackbox probe from the Mac mini is failing. Check that stack's
+            `docker compose logs watchdog` first: it restarts tailscale, the
+            app and cloudflared on its own and logs what it did.

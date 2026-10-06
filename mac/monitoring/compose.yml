@@ -4,8 +4,9 @@
 #
 # Sized for a 16 GB Mac that also runs production: every service has a hard
 # memory cap (~550 MB total), scrapes are every 30 s, and Prometheus keeps
-# 7 days or 1 GB, whichever comes first. Alerts are UptimeRobot's job, not
-# this stack's — this is for looking at how things behave.
+# 7 days or 1 GB, whichever comes first. UptimeRobot alerts when the Mac or
+# its internet is down; Grafana here emails when a site is down while the Mac
+# is up (grafana/provisioning/alerting).
 
 name: monitoring
 
@@ -27,6 +28,7 @@ services:
       - --storage.tsdb.retention.size=1GB
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./private:/etc/prometheus/private:ro
       - prometheus-data:/prometheus
     ports:
       - "127.0.0.1:9090:9090"
@@ -88,7 +90,8 @@ services:
         mv /config/serve.json.tmp /config/serve.json
 
   tailscale:
-    image: tailscale/tailscale:latest
+    # Pinned: the watchdog relies on containerboot's start-up behaviour.
+    image: tailscale/tailscale:v1.102.3
     restart: *restart
     logging: *logging
     hostname: ${TS_HOSTNAME:-grafana}
@@ -102,6 +105,10 @@ services:
       TS_USERSPACE: "true"
       TS_SERVE_CONFIG: /config/serve.json
       TS_EXTRA_ARGS: --accept-dns=false
+      # Log in only when the saved state has no login, so an internet outage
+      # does not turn into a restart loop that strands grafana on a dead
+      # network namespace (lecture-note-app, 2026-10-05).
+      TS_AUTH_ONCE: "true"
     volumes:
       - tailscale-state:/var/lib/tailscale
       - tailscale-config:/config:ro
@@ -126,10 +133,33 @@ services:
       GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
       GF_NEWS_NEWS_FEED_ENABLED: "false"
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/mac-mini.json
+      # Site-down alert emails (grafana/provisioning/alerting).
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-}
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: smtp.gmail.com:587
+      GF_SMTP_USER: ${ALERT_SMTP_USER:-}
+      GF_SMTP_PASSWORD: ${ALERT_SMTP_PASSWORD:-}
+      GF_SMTP_FROM_ADDRESS: ${ALERT_SMTP_USER:-grafana@localhost}
+      GF_SMTP_FROM_NAME: Mac mini monitoring
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
+
+  # Re-attaches grafana when tailscale restarted underneath it (they share a
+  # network namespace) and restarts it after ~10 minutes unhealthy or an error
+  # exit. Same script as the app stacks' watchdogs.
+  watchdog:
+    build: ./watchdog
+    image: monitoring-watchdog:latest
+    restart: *restart
+    logging: *logging
+    mem_limit: 32m
+    environment:
+      PROJECT: monitoring
+      DEPENDANTS: grafana
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   prometheus-data:

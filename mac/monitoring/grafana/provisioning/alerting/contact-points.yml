@@ -1,0 +1,11 @@
+# Address and SMTP account come from .env (ALERT_EMAIL_TO, ALERT_SMTP_*).
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: email
+    receivers:
+      - uid: email
+        type: email
+        settings:
+          addresses: $ALERT_EMAIL_TO
+          singleEmail: true

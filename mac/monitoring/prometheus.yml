@@ -43,3 +43,19 @@ scrape_configs:
         replacement: insidertrack-cloudflare
       - target_label: __address__
         replacement: blackbox:9115
+
+  # Sites whose addresses are kept out of this public repo: one file_sd file
+  # per site in ./private/ (gitignored), e.g.
+  #   - targets: [https://example.com/health]
+  #     labels: { site: example-cloudflare }
+  - job_name: private-sites
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    scrape_interval: 60s
+    file_sd_configs:
+      - files: [/etc/prometheus/private/*.yml]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox:9115

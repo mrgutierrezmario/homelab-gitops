@@ -7,3 +7,6 @@ secrets/*.yaml.unsealed
 
 # macOS
 .DS_Store
+
+# Probe targets kept out of this public repo
+mac/monitoring/private/*.yml

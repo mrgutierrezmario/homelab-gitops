@@ -1,9 +1,21 @@
 # monitoring/
 
 A small Prometheus + Grafana for the production containers on this Mac —
-for **looking** at how things behave. **Alerts are UptimeRobot's job**, from
-outside the house, so it also notices when this whole Mac is down; nothing
-here can.
+for **looking** at how things behave, plus one alert. **UptimeRobot** alerts
+from outside the house, so it also notices when this whole Mac (or its
+internet) is down; nothing here can. **Grafana** emails `ALERT_EMAIL_TO`
+when any probed site fails for 5 minutes while the Mac is up — the case
+where a stack is broken but the machine is fine (2026-10-05: lecture-note-app
+stayed down six hours after the internet came back). The rule, contact point
+and policy are provisioned from `grafana/provisioning/alerting/`; SMTP
+settings come from `.env`.
+
+Sites whose addresses stay out of this public repo are probed from
+`private/*.yml` (gitignored, Prometheus `file_sd` format).
+
+Grafana shares the `tailscale` container's network namespace, so a
+`watchdog` service (same script as the app stacks) re-attaches it whenever
+tailscale restarts.
 
 - **Grafana:** https://grafana.tail3659a6.ts.net (tailnet devices only, no
   Funnel) or http://localhost:3030 — user `admin`, password in `.env`.
