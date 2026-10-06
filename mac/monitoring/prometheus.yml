@@ -44,6 +44,21 @@ scrape_configs:
       - target_label: __address__
         replacement: blackbox:9115
 
+  # InsiderTrack's MCP server through Funnel. Bearer auth, so the probe
+  # expects 401: anything else (502, timeout) means the path is broken.
+  - job_name: mcp
+    metrics_path: /probe
+    params: { module: [http_401] }
+    scrape_interval: 60s
+    static_configs:
+      - targets: [https://mgnts-stock-tracker.tail3659a6.ts.net/mcp]
+        labels: { site: insidertrack-mcp }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox:9115
+
   # Sites whose addresses are kept out of this public repo: one file_sd file
   # per site in ./private/ (gitignored), e.g.
   #   - targets: [https://example.com/health]

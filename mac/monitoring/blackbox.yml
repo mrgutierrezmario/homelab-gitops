@@ -7,3 +7,12 @@ modules:
     http:
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
+  # An endpoint that must refuse an unauthenticated request: a 401 proves the
+  # request reached the service (InsiderTrack's MCP server behind Funnel).
+  http_401:
+    prober: http
+    timeout: 10s
+    http:
+      valid_status_codes: [401]
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
