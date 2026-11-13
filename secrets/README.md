@@ -12,7 +12,7 @@ secrets/
 ├── tailscale/            # operator-oauth — read by apps/platform/tailscale-operator.yaml
 ├── insidertrack-mcp/     # mcp-tokens — read by apps/staging/insidertrack-mcp.yaml
 ├── insidertrack/         # insidertrack-db, insidertrack-app, insidertrack-rclone — apps/staging/insidertrack.yaml
-├── lecture-notes/        # lecture-notes-db, -minio, -app, -rclone — apps/staging/lecture-notes.yaml
+├── lecture-notes/        # lecture-notes-db, -garage, -app, -rclone — apps/staging/lecture-notes.yaml
 └── image-updater/        # image-updater-git — the SSH deploy key it pushes with
 ```
 
@@ -93,8 +93,10 @@ read-only mount; harmless, the refresh token itself does not change.
 
 ### Lecture Notes (phase 4)
 
-`lecture-notes-db`, `lecture-notes-minio` and `lecture-notes-app` were
-generated and sealed unseen. The rclone one, from the Mac, cut from the
+`lecture-notes-db`, `lecture-notes-garage` and `lecture-notes-app` were
+generated and sealed unseen (`lecture-notes-garage` on 2026-11-13, replacing
+`lecture-notes-minio`: `S3_ACCESS_KEY` must be `GK` + 24 hex and
+`S3_SECRET_KEY` 64 hex, the formats `garage key import` accepts). The rclone one, from the Mac, cut from the
 config file — the remotes are `gdrive` and `lecture-backup` here:
 
 ```sh

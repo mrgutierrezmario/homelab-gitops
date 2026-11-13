@@ -1,14 +1,14 @@
 # lecture-notes
 
 [AI Lecture Notes](https://github.com/mrgutierrezmario/lecture-note-app) as
-it runs in production — Postgres 18, MinIO, the app — plus a **restore Job**
+it runs in production — Postgres 18, Garage (S3), the app — plus a **restore Job**
 that seeds the database (and optionally the audio bucket) from the newest
 bundle `deploy/backup.sh` uploaded to the encrypted Drive remote.
 
 ```
 wave 0  StatefulSet lecture-notes-postgres   PVC 2 Gi
-        StatefulSet lecture-notes-minio      PVC 20 Gi
-wave 1  Job         lecture-notes-restore    fetch (rclone) → restore-db (psql) → bucket (mc) [→ import-audio]
+        StatefulSet lecture-notes-garage     PVC 20 Gi, dxflrs/garage:v2.1.0, production's garage.toml
+wave 1  Job         lecture-notes-restore    fetch (rclone) → restore-db (psql) → garage-init [→ import-audio]
 wave 2  Deployment  lecture-notes            init: alembic upgrade head; then uvicorn. Whisper on CPU
         Ingress     lecture-notes            / → app :8000, Funnel
 ```
@@ -24,10 +24,32 @@ wave 2  Deployment  lecture-notes            init: alembic upgrade head; then uv
 | `app.whisperModel` | `small` | ~2 GB while transcribing; the pod's limit is 3 Gi |
 
 Secrets (SealedSecrets under `secrets/lecture-notes/`): `lecture-notes-db`
-(`POSTGRES_PASSWORD`), `lecture-notes-minio` (`MINIO_ROOT_USER`,
-`MINIO_ROOT_PASSWORD`), `lecture-notes-app` (`SECRET_KEY`),
+(`POSTGRES_PASSWORD`), `lecture-notes-garage` (`GARAGE_RPC_SECRET`,
+`GARAGE_ADMIN_TOKEN`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`), `lecture-notes-app` (`SECRET_KEY`),
 `lecture-notes-rclone` (`rclone.conf` with the `gdrive` and `lecture-backup`
 remotes). `secrets/README.md` has the commands.
+
+## Garage (replaced MinIO, 2026-11-13)
+
+Production moved to Garage on 2026-09-25 when MinIO stopped publishing
+community images; `quay.io/minio/*` now refuses anonymous pulls, so this
+chart could no longer deploy. It now runs the same image and config as
+production.
+
+Garage needs a layout, a key and a bucket before the app can use it.
+Production does that with the CLI (`deploy/garage-init.sh`); the Garage image
+is distroless, so here the restore Job's **garage-init** step does the same
+three things through the v2 admin API (`garage-init.py` in the restore
+ConfigMap, run with the app image's Python). It is idempotent and runs before
+`import-audio` on every restore and drill.
+
+The key is *imported* with the ID and secret from `lecture-notes-garage`, so
+the app and garage-init agree without a generated value being passed around.
+Staging has its own credentials; nothing is shared with production.
+
+Garage's `/health` returns 503 until a layout exists, so its probes are TCP:
+an HTTP readiness probe would keep the pod unready, and garage-init could
+never reach it to apply the layout.
 
 ## What the copy does and does not carry
 

@@ -30,8 +30,9 @@ It runs on first sync and whenever its own definition changes:
 2. **restore-db** — the dump is loaded into `<db>_restore`, row counts are
    printed, production-only rows are scrubbed, and the database is
    rename-swapped into place under the running app.
-3. **bucket / import-audio** (Lecture Notes) — the audio mirror is uploaded
-   into MinIO so restored lectures actually play.
+3. **garage-init / import-audio** (Lecture Notes) — Garage's layout, key and
+   bucket are set up (idempotent), then the audio mirror is uploaded so
+   restored lectures actually play.
 
 Then the app starts against it, its migrations run, and its scheduled work
 — InsiderTrack's scrapers, Lecture Notes' cleanup — runs against the copy.
@@ -112,7 +113,7 @@ any US timezone — and adds a step the seed Job cannot do, because at that
 point the app does not exist yet:
 
 ```
-fetch → restore-db → (bucket → import-audio) → smoke
+fetch → restore-db → (garage-init → import-audio) → smoke
 ```
 
 `smoke` asks the running app whether it can actually serve what was just

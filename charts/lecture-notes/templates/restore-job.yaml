@@ -29,17 +29,22 @@
   volumeMounts:
     - { name: scripts, mountPath: /scripts }
     - { name: work, mountPath: /work }
-- name: bucket
-  image: {{ .Values.minio.mcImage }}
-  command: ["/bin/sh", "/scripts/bucket.sh"]
+- name: garage-init
+  # The app image, for its Python; Garage's own image has no shell.
+  image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+  command: ["python", "/scripts/garage-init.py"]
   resources:
     {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
-    - { name: MINIO_HOST, value: {{ include "ln.minioName" . }} }
-    - { name: BUCKET, value: {{ .Values.minio.bucket }} }
-  envFrom:
-    - secretRef:
-        name: {{ .Values.secrets.minio }}
+    - { name: GARAGE_ADMIN_URL, value: "http://{{ include "ln.garageName" . }}:3903" }
+    - { name: BUCKET, value: {{ .Values.garage.bucket }} }
+    - { name: GARAGE_CAPACITY_BYTES, value: {{ .Values.garage.capacityBytes | int64 | quote }} }
+    - name: GARAGE_ADMIN_TOKEN
+      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.garage }}, key: GARAGE_ADMIN_TOKEN } }
+    - name: S3_ACCESS_KEY
+      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.garage }}, key: S3_ACCESS_KEY } }
+    - name: S3_SECRET_KEY
+      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.garage }}, key: S3_SECRET_KEY } }
   volumeMounts:
     - { name: scripts, mountPath: /scripts }
 {{- if .Values.restore.audio }}
@@ -49,12 +54,12 @@
   resources:
     {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
-    - { name: S3_ENDPOINT_URL, value: "http://{{ include "ln.minioName" . }}:9000" }
-    - { name: S3_BUCKET, value: {{ .Values.minio.bucket }} }
+    - { name: S3_ENDPOINT_URL, value: "http://{{ include "ln.garageName" . }}:3900" }
+    - { name: S3_BUCKET, value: {{ .Values.garage.bucket }} }
     - name: S3_ACCESS_KEY
-      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_USER } }
+      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.garage }}, key: S3_ACCESS_KEY } }
     - name: S3_SECRET_KEY
-      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.minio }}, key: MINIO_ROOT_PASSWORD } }
+      valueFrom: { secretKeyRef: { name: {{ .Values.secrets.garage }}, key: S3_SECRET_KEY } }
   volumeMounts:
     - { name: scripts, mountPath: /scripts }
     - { name: work, mountPath: /work }
@@ -147,13 +152,70 @@ data:
       -c "DROP DATABASE IF EXISTS ${DB}_old WITH (FORCE);"
     rm -rf "$stage" /work/bundle.tar.gz
     log "database done"
-  bucket.sh: |
-    #!/bin/sh
-    # The app does not create its bucket (compose has a minio-init service).
-    set -eu
-    until mc alias set local "http://$MINIO_HOST:9000" "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD" >/dev/null 2>&1; do sleep 2; done
-    mc mb --ignore-existing "local/$BUCKET"
-    echo "[restore] bucket $BUCKET ready"
+  garage-init.py: |
+    # Prepare Garage for the app through its v2 admin API: single-node layout,
+    # the app's access key (imported with the ID/secret from the sealed secret),
+    # and the bucket, owned by that key. Same steps as production's
+    # deploy/garage-init.sh, which uses the CLI; the Garage image has no shell.
+    # Idempotent: every step is skipped when already done.
+    import json, os, sys, time, urllib.error, urllib.request
+
+    ADMIN = os.environ["GARAGE_ADMIN_URL"].rstrip("/")
+    TOKEN = os.environ["GARAGE_ADMIN_TOKEN"]
+    KEY_ID = os.environ["S3_ACCESS_KEY"]
+    KEY_SECRET = os.environ["S3_SECRET_KEY"]
+    BUCKET = os.environ["BUCKET"]
+    CAPACITY = int(os.environ.get("GARAGE_CAPACITY_BYTES", 10 * 1000**3))
+
+    def log(msg): print(f"[garage-init] {msg}", flush=True)
+
+    def call(method, path, body=None, ok404=False):
+        req = urllib.request.Request(
+            ADMIN + path, method=method,
+            data=None if body is None else json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"})
+        try:
+            with urllib.request.urlopen(req, timeout=10) as r:
+                raw = r.read()
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as e:
+            if ok404 and e.code in (400, 404):
+                return None
+            sys.exit(f"[garage-init] {method} {path} -> {e.code}: {e.read().decode()[:300]}")
+
+    # 0. Wait for the admin API.
+    for _ in range(60):
+        try:
+            status = call("GET", "/v2/GetClusterStatus"); break
+        except (urllib.error.URLError, ConnectionError, OSError):
+            time.sleep(2)
+    else:
+        sys.exit("[garage-init] admin API never came up")
+
+    # 1. Single-node layout (one zone, one copy).
+    layout = call("GET", "/v2/GetClusterLayout")
+    if not layout.get("roles"):
+        node = status["nodes"][0]["id"]
+        call("POST", "/v2/UpdateClusterLayout",
+             {"roles": [{"id": node, "zone": "dc1", "capacity": CAPACITY, "tags": []}]})
+        call("POST", "/v2/ApplyClusterLayout", {"version": layout["version"] + 1})
+        log(f"layout applied (node {node[:16]})")
+
+    # 2. The app's key, imported so its ID/secret match the sealed secret.
+    if call("GET", f"/v2/GetKeyInfo?id={KEY_ID}", ok404=True) is None:
+        call("POST", "/v2/ImportKey",
+             {"accessKeyId": KEY_ID, "secretAccessKey": KEY_SECRET, "name": "lecture-notes"})
+        log("key imported")
+
+    # 3. The bucket, owned by that key.
+    bucket = call("GET", f"/v2/GetBucketInfo?globalAlias={BUCKET}", ok404=True)
+    if bucket is None:
+        bucket = call("POST", "/v2/CreateBucket", {"globalAlias": BUCKET})
+        log(f"bucket {BUCKET} created")
+    call("POST", "/v2/AllowBucketKey",
+         {"bucketId": bucket["id"], "accessKeyId": KEY_ID,
+          "permissions": {"read": True, "write": True, "owner": True}})
+    log(f"ready: bucket {BUCKET}, key {KEY_ID}")
   import-audio.sh: |
     #!/bin/sh
     # deploy/restore.sh does the same: the app's own module uploads the mirror.

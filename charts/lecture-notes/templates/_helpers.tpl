@@ -6,8 +6,8 @@
 {{ .Release.Name }}-postgres
 {{- end }}
 
-{{- define "ln.minioName" -}}
-{{ .Release.Name }}-minio
+{{- define "ln.garageName" -}}
+{{ .Release.Name }}-garage
 {{- end }}
 
 {{- define "ln.labels" -}}

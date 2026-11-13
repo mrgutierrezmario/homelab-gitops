@@ -60,7 +60,7 @@ because Lecture Notes re-fetches its whole audio mirror each run.)*
 | Images | Built by each project's existing CI, pushed to **GHCR** (`ghcr.io/mrgutierrezmario/<project>:<sha>` + `:vX.Y.Z`) | Today images are built on the mini from source. Kubernetes needs a registry; GHCR is free for public repos and CI already builds the image |
 | Image updates | **Argo CD Image Updater** for staging: `digest` strategy on the mutable `:main` tag, **written back to git** (`helmvalues:` → each chart's `values-staging.yaml`); tags pinned by hand for production | Staging follows `main` automatically — the staging-for-Dependabot payoff. Git write-back, not the `argocd` method: that one patches the live Application, which the app-of-apps root would revert on its next reconcile (selfHeal). It also keeps the repo the source of truth, so `git log` *is* the deployment history |
 | Secrets | **Sealed Secrets** (Bitnami) committed to this repo | Simplest GitOps-native option; no external vault to run. The sealing key is backed up like any other secret |
-| State | `StatefulSet` + PVC for Postgres and MinIO via k3s's local-path provisioner; **restore job** on first start from the latest backup bundle | Production backups already exist; the cluster's data is always a restored copy. No PV backup of the cluster itself is needed while it is staging |
+| State | `StatefulSet` + PVC for Postgres and Garage (MinIO until 2026-11-13) via k3s's local-path provisioner; **restore job** on first start from the latest backup bundle | Production backups already exist; the cluster's data is always a restored copy. No PV backup of the cluster itself is needed while it is staging |
 | Ollama / Whisper | Staging **points at the Mac's native Ollama** via `host.lima.internal:11434` (the VM's host — the same Mac in Phase A and once the old mini is dedicated); Whisper runs in the pod on CPU | Do not run a second LLM server; Whisper in staging is for smoke tests, not real-time |
 | Scope of "prod cut-over" | **Out of scope for v1.** Decide after staging has run for a month | Compose in production is fine; moving it is a separate decision with its own risk |
 
@@ -75,7 +75,7 @@ namespace: insidertrack-staging
 
 namespace: lecture-notes-staging
   postgres        StatefulSet, PVC 2 Gi, restore Job — wave 0
-  minio           StatefulSet, PVC 20 Gi, bucket-init Job — wave 0
+  garage          StatefulSet, PVC 20 Gi — wave 0 (MinIO until 2026-11-13); layout/key/bucket by the restore Job
   app             Deployment, 1 replica, alembic runs in an initContainer, probes on /health — wave 1
   ingress         tailscale, host lecture-notes-staging
 
@@ -100,7 +100,7 @@ operator is the ingress):
 | Argo CD (server, repo-server, controller, redis) + Image Updater | ~0.8 idle; limits raised to 1 Gi for the controller and repo-server after the first sizing proved tight. Note the control plane's real constraint here is **CPU, not memory**: the repo-server's health probes time out on a busy four-vCPU VM long before anything runs out of RAM (`docs/OPERATIONS.md`) |
 | Sealed Secrets + Tailscale operator + one proxy pod per Ingress (3) | ~0.3 |
 | InsiderTrack staging (postgres 0.2, app 0.3, mcp 0.1) | ~0.6 |
-| Lecture Notes staging (postgres 0.1, minio 0.3, app 0.4 idle / 2.5 with Whisper) | ~0.8–2.9 |
+| Lecture Notes staging (postgres 0.1, minio 0.3 — Garage not yet measured, app 0.4 idle / 2.5 with Whisper) | ~0.8–2.9 |
 | **Total** | **~3.3 GB idle, ~5.4 GB when Whisper runs** |
 
 Running since 2026-09-21 in a **6 GiB, 4-vCPU** VM with all of the above,
