@@ -1,0 +1,16 @@
+# Structural YAML checks for CI. Cosmetic rules are off: the goal is to catch
+# broken YAML and duplicate keys before Argo or Compose does, not to restyle.
+extends: default
+ignore: |
+  charts/*/templates/
+rules:
+  document-start: disable
+  line-length: disable
+  comments: disable
+  comments-indentation: disable
+  truthy:
+    check-keys: false
+  indentation:
+    indent-sequences: whatever
+  braces:
+    max-spaces-inside: 1
