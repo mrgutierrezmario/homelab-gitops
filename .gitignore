@@ -13,3 +13,6 @@ mac/monitoring/private/*.yml
 
 # Python bytecode (CI py_compile)
 __pycache__/
+
+# CI scratch output (helm template -> kubeconform)
+rendered/
