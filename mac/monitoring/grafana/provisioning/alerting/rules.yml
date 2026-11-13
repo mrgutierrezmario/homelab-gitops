@@ -69,4 +69,3 @@ groups:
             job saved nothing. Check `stacks logs insider app` for
             "Snapshotted" / "Could not compute" and the outcome_snapshot job.
             A restart backfills missing days (flagged is_backfilled).
-

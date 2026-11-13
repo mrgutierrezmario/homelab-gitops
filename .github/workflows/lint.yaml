@@ -1,0 +1,63 @@
+name: lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: actionlint
+        run: |
+          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7
+          ./actionlint -color
+
+      - name: shellcheck
+        # Warnings and errors fail the build; info/style findings are ignored.
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck --severity=warning
+
+      - name: yamllint
+        run: |
+          pip install --quiet yamllint==1.35.1
+          yamllint --strict .
+
+      - name: launchd plists parse
+        # Templates contain __REPO__/__HOME__ placeholders; they must still be valid plist XML.
+        run: |
+          git ls-files -z '*.plist' | xargs -0 python3 -c '
+          import plistlib, sys
+          for p in sys.argv[1:]:
+              with open(p, "rb") as f:
+                  d = plistlib.load(f)
+              assert "Label" in d and "ProgramArguments" in d, f"{p}: missing Label/ProgramArguments"
+              print("ok", p)'
+
+      - name: python / json syntax
+        run: |
+          git ls-files -z '*.py' | xargs -0 -r python3 -m py_compile
+          git ls-files -z '*.json' | xargs -0 -r -n1 python3 -m json.tool > /dev/null
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: helm lint + render
+        # Render with the same layering Argo uses: values.yaml, then values-staging.yaml.
+        run: |
+          set -euo pipefail
+          for c in charts/*/; do
+            helm lint "$c"
+            if [ -f "$c/values-staging.yaml" ]; then
+              helm template ci "$c" -f "$c/values-staging.yaml" > /dev/null
+            else
+              helm template ci "$c" > /dev/null
+            fi
+            echo "rendered $c"
+          done

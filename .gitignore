@@ -10,3 +10,6 @@ secrets/*.yaml.unsealed
 
 # Probe targets kept out of this public repo
 mac/monitoring/private/*.yml
+
+# Python bytecode (CI py_compile)
+__pycache__/
