@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Every 5 minutes: restart Homebridge child bridges (Midea AC, Dreo) that
+     started but never logged in to their cloud, plus a daily 04:30 Midea
+     refresh. Installed by mac/install.sh, which replaces __REPO__ and
+     __HOME__. Log: __HOME__/Library/Logs/homebridge-watchdog.log -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.mgnetwork.homebridge-watchdog</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/mac/homebridge-watchdog.sh</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>__HOME__</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>__HOME__/Library/Logs/homebridge-watchdog.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/Library/Logs/homebridge-watchdog.log</string>
+</dict>
+</plist>

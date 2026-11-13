@@ -3,13 +3,15 @@
 #
 #   com.mgnetwork.config-backup      03:30  encrypted off-site copy of the Mac's config
 #   com.mgnetwork.backup-age-check   09:30  are the off-site backups still being made?
+#   com.mgnetwork.homebridge-watchdog  5 min  restart Homebridge bridges stuck without a login
+#   com.mgnetwork.homebridge-plugin-update  04:00  install minor plugin updates, hold majors
 #
-#   mac/install.sh            install / reinstall both
-#   mac/install.sh --remove   uninstall both
+#   mac/install.sh            install / reinstall all
+#   mac/install.sh --remove   uninstall all
 set -euo pipefail
 cd "$(dirname "$0")"
 REPO=$(cd .. && pwd)
-LABELS=(com.mgnetwork.config-backup com.mgnetwork.backup-age-check)
+LABELS=(com.mgnetwork.config-backup com.mgnetwork.backup-age-check com.mgnetwork.homebridge-watchdog com.mgnetwork.homebridge-plugin-update)
 
 if [ "${1:-}" = "--remove" ]; then
   for LABEL in "${LABELS[@]}"; do
