@@ -71,11 +71,11 @@ itself:
 ║  │ stock-tracker           │          │                 Image Updtr │ ║
 ║  │   app · pg · mcp · ts   │          │ sealed-secrets  controller  │ ║
 ║  │ lecture-notes           │          │ tailscale       operator    │ ║
-║  │   app · pg · minio · ts │          ├─────────────────────────────┤ ║
+║  │   app · pg · garage · ts│          ├─────────────────────────────┤ ║
 ║  └───────────┬─────────────┘          │ insidertrack-staging        │ ║
 ║              │                        │   app · pg · mcp  + restore │ ║
 ║              │ 03:00  backup.sh       │ lecture-notes-staging       │ ║
-║              ▼                        │   app · pg · minio + restore│ ║
+║              ▼                        │  app · pg · garage + restore│ ║
 ║      ┌───────────────┐                └─────────────────────────────┘ ║
 ║      │ Google Drive  │   restore Job pulls last night's bundle        ║
 ║      │ (rclone crypt)│──────────────────────────────────────────────► ║

@@ -1,5 +1,5 @@
 # Defaults true in every environment; values-<env>.yaml has the rest.
-# Shape follows deploy/compose.yml in the app repo: postgres + minio + app.
+# Shape follows deploy/compose.yml in the app repo: postgres + garage + app.
 
 image:
   repository: ghcr.io/mrgutierrezmario/lecture-note-app
@@ -22,12 +22,14 @@ postgres:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 512Mi }
 
-minio:
-  image: quay.io/minio/minio:latest
-  mcImage: quay.io/minio/mc:latest
+# Garage, the S3 store — same image and config as production (garage.yaml).
+garage:
+  image: dxflrs/garage:v2.1.0
   bucket: lecture-audio
   storage: 20Gi
   storageClassName: ""
+  # Layout capacity garage-init assigns the node (bytes). Production uses 10G.
+  capacityBytes: 10000000000
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits: { memory: 512Mi }
@@ -35,7 +37,7 @@ minio:
 # SealedSecrets under secrets/lecture-notes/.
 secrets:
   db: lecture-notes-db          # POSTGRES_PASSWORD
-  minio: lecture-notes-minio    # MINIO_ROOT_USER, MINIO_ROOT_PASSWORD
+  garage: lecture-notes-garage  # GARAGE_RPC_SECRET, GARAGE_ADMIN_TOKEN, S3_ACCESS_KEY, S3_SECRET_KEY
   app: lecture-notes-app        # SECRET_KEY
   rclone: lecture-notes-rclone  # rclone.conf — remotes gdrive + lecture-backup
 

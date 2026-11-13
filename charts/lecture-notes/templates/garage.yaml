@@ -1,0 +1,145 @@
+{{/*
+Garage — the S3 store for the audio chunks, as in production
+(lecture-note-app deploy/garage.toml; it replaced MinIO there on 2026-09-25
+when MinIO stopped publishing community images). Single node, one copy.
+Layout, the app's key and the bucket are set up by the restore Job's
+garage-init step through the admin API; the image is distroless, so there
+is no shell to run the CLI from as production's garage-init.sh does.
+*/}}
+{{- define "ln.garageToml" -}}
+metadata_dir = "/var/lib/garage/meta"
+data_dir = "/var/lib/garage/data"
+db_engine = "sqlite"
+replication_factor = 1
+
+rpc_bind_addr = "[::]:3901"
+rpc_public_addr = "127.0.0.1:3901"
+
+[s3_api]
+# Must match the region the app signs with (S3_REGION, default us-east-1).
+s3_region = "us-east-1"
+api_bind_addr = "[::]:3900"
+root_domain = ".s3.garage.localhost"
+
+[admin]
+api_bind_addr = "[::]:3903"
+{{- end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ln.garageName" . }}-config
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: garage
+data:
+  garage.toml: |
+    {{- include "ln.garageToml" . | nindent 4 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ln.garageName" . }}
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: garage
+spec:
+  clusterIP: None
+  selector:
+    {{- include "ln.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: garage
+  ports:
+    - name: s3
+      port: 3900
+    - name: admin
+      port: 3903
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "ln.garageName" . }}
+  labels:
+    {{- include "ln.labels" . | nindent 4 }}
+    app.kubernetes.io/component: garage
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  serviceName: {{ include "ln.garageName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "ln.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: garage
+  template:
+    metadata:
+      labels:
+        {{- include "ln.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: garage
+      annotations:
+        checksum/config: {{ include "ln.garageToml" . | sha256sum | trunc 16 }}
+    spec:
+      securityContext:
+        # The image is a static binary on scratch with no USER; any uid works.
+        # fsGroup makes the local-path PVC (created as root) writable.
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: garage
+          image: {{ .Values.garage.image }}
+          command: ["/garage", "-c", "/etc/garage.toml", "server"]
+          env:
+            - name: GARAGE_RPC_SECRET
+              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.garage }}, key: GARAGE_RPC_SECRET } }
+            - name: GARAGE_ADMIN_TOKEN
+              valueFrom: { secretKeyRef: { name: {{ .Values.secrets.garage }}, key: GARAGE_ADMIN_TOKEN } }
+          ports:
+            - name: s3
+              containerPort: 3900
+            - name: admin
+              containerPort: 3903
+          volumeMounts:
+            - name: config
+              mountPath: /etc/garage.toml
+              subPath: garage.toml
+              readOnly: true
+            - name: data
+              mountPath: /var/lib/garage
+          # TCP, not /health: Garage reports unhealthy (503) until a layout
+          # is applied, and the layout is applied by garage-init, which needs
+          # this pod reachable first. Generous timings, as everywhere on this
+          # VM (docs/OPERATIONS.md).
+          readinessProbe:
+            tcpSocket: { port: s3 }
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: admin }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.garage.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "ln.garageName" . }}-config
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.garage.storageClassName }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.garage.storage }}
