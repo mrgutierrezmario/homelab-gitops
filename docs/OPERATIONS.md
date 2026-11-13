@@ -85,10 +85,11 @@ Done when `argocd app list` (or the UI) shows every app **Synced / Healthy**
    are already there — except the two rclone configs only the Mac can
    produce (`insidertrack-rclone`, `lecture-notes-rclone`;
    `secrets/README.md`). Until each is committed, that app's restore Job
-   fails after its deadline and the app waits. **Re-seal both before the
-   next rebuild:** the committed ones were sealed before the Mac's Drive
-   remotes moved to their own client ID (`mac/rclone-own-client-id.md`),
-   so they carry the retired shared client and an old token.
+   fails after its deadline and the app waits. Both were **re-sealed
+   2026-11-13** from the Mac's config after its Drive remotes moved to
+   their own client ID (`mac/rclone-own-client-id.md`); each cut was
+   checked to list last night's bundle on its own before sealing. Re-seal
+   again if the Mac's Drive token is revoked or the client ID changes.
 
 Whole thing, from `limactl start` to three apps serving restored data:
 about half an hour, most of it image pulls and the audio mirror.
@@ -278,9 +279,9 @@ that endpoint reports data-source failures.
 - ~~rclone's shared Google Drive client_id is being retired during 2026~~
   — **done on the Mac** (verified 2026-09-26: `gdrive` and
   `gdrive-stock-tracker` have their own client ID, and both nightly
-  backups are current). Runbook: `mac/rclone-own-client-id.md`. Still
-  open: re-seal `insidertrack-rclone` and `lecture-notes-rclone` here
-  before the cluster is rebuilt (step 6 above).
+  backups are current). Runbook: `mac/rclone-own-client-id.md`.
+  `insidertrack-rclone` and `lecture-notes-rclone` were re-sealed here on
+  2026-11-13 (step 6 above).
 
 ## Restore a namespace (re-seed staging from last night's backup)
 
