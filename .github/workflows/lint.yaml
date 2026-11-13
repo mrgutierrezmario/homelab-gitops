@@ -50,14 +50,37 @@ jobs:
 
       - name: helm lint + render
         # Render with the same layering Argo uses: values.yaml, then values-staging.yaml.
+        # Output is kept in rendered/ for kubeconform.
         run: |
           set -euo pipefail
+          mkdir -p rendered
           for c in charts/*/; do
+            name=$(basename "$c")
             helm lint "$c"
             if [ -f "$c/values-staging.yaml" ]; then
-              helm template ci "$c" -f "$c/values-staging.yaml" > /dev/null
+              helm template ci "$c" -f "$c/values-staging.yaml" > "rendered/$name.yaml"
             else
-              helm template ci "$c" > /dev/null
+              helm template ci "$c" > "rendered/$name.yaml"
             fi
             echo "rendered $c"
           done
+
+      - name: kubeconform
+        # Schema-validate rendered charts and raw manifests. CRDs (Argo Application,
+        # SealedSecret, ImageUpdater) resolve from the datree CRDs-catalog; a kind with
+        # no schema fails the build rather than being skipped.
+        # k3s tracks the stable channel (bootstrap/lima.yaml); bump KUBE_VERSION with it.
+        env:
+          KUBE_VERSION: 1.34.12
+          KUBECONFORM_VERSION: v0.6.7
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz kubeconform
+          # Not manifests: Helm values files and the Lima VM config.
+          mapfile -t files < <(git ls-files 'apps/*.yaml' 'bootstrap/*.yaml' 'platform/*.yaml' 'secrets/*.yaml' \
+            | grep -vE '^apps/platform/values/|^bootstrap/lima\.yaml$')
+          ./kubeconform -strict -summary -output text \
+            -kubernetes-version "$KUBE_VERSION" \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            rendered/ "${files[@]}"
