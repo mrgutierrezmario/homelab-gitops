@@ -57,7 +57,7 @@ cluster.
 Order matters only once; after that Argo keeps it converged.
 
 1. **VM** — `limactl start --name k3s bootstrap/lima.yaml`. Ubuntu LTS, k3s
-   from the stable channel, ~2 min. Check: `kubectl get nodes` shows one
+   pinned to a 1.34 release (the version CI validates against), ~2 min. Check: `kubectl get nodes` shows one
    `Ready` node.
 2. **Argo CD** — `bootstrap/argocd.sh`. Installs the chart, waits, applies
    the root app. Check: `kubectl -n argocd get applications` lists `root`,
@@ -133,7 +133,7 @@ fine while the count is small.
 | Something is `OutOfSync` and stays so | click Sync in the UI once; if it flips back, someone edited the cluster by hand and `selfHeal` is reverting it — fix it in git |
 | Roll back a change | `git revert`, push; Argo applies the revert |
 | A commit is not being applied, app says `Syncing` for ages | a sync waiting on a wave (a Job that cannot start) blocks all later syncs. `kubectl -n argocd patch application <name> --type json -p '[{"op":"remove","path":"/operation"}]'` terminates it; auto-sync restarts on the newest commit |
-| Upgrade k3s | `limactl shell k3s -- curl -sfL https://get.k3s.io \| INSTALL_K3S_CHANNEL=stable sh -` — same installer, in place. Pods restart, PVC data stays |
+| Upgrade k3s | bump the version in `bootstrap/lima.yaml`, `bootstrap/k3s.sh` **and** `KUBE_VERSION` in `.github/workflows/lint.yaml` (kubeconform must have schemas for it), then `limactl shell k3s -- curl -sfL https://get.k3s.io \| INSTALL_K3S_VERSION=<version> sh -` — same installer, in place. Pods restart, PVC data stays |
 | Upgrade Argo CD | bump `targetRevision` in `apps/platform/argocd.yaml` (Argo upgrades itself). If it ever cannot, `bootstrap/argocd.sh` reads the same file |
 | Kubectl from the dev container | copy the kubeconfig in and `sed -i 's/127.0.0.1/host.docker.internal/' …`; the cert is valid for that name |
 

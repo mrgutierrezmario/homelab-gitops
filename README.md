@@ -138,7 +138,7 @@ What was verified while it ran:
 
 | | |
 |---|---|
-| Cluster | k3s 1.36, Argo CD 3.5 (self-managed), Sealed Secrets, Tailscale operator; UI at `argocd.tail3659a6.ts.net` (tailnet only) |
+| Cluster | k3s 1.34 (pinned in `bootstrap/`; it last ran 1.36 from the stable channel), Argo CD 3.5 (self-managed), Sealed Secrets, Tailscale operator; UI at `argocd.tail3659a6.ts.net` (tailnet only) |
 | InsiderTrack | `insidertrack-staging.tail3659a6.ts.net` — Postgres seeded from last night's off-site bundle (19,984 trades, 284 members, 37,867 Form 4 rows); production API keys and mail credentials scrubbed from the copy; `/mcp` → the MCP |
 | InsiderTrack MCP | same host, `/mcp`; answered claude.ai with its own token |
 | Lecture Notes | `lecture-notes-staging.tail3659a6.ts.net` — 3 users, 201 lectures, 2,872 transcript segments, 2,998 audio chunks restored; migrations in an initContainer; a live recording transcribed by Whisper on CPU |

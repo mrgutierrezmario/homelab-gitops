@@ -1,7 +1,10 @@
 # Tailscale Kubernetes operator: Ingress class `tailscale`, MagicDNS names and
 # certs for everything on the cluster, Funnel where a manifest asks for it.
 # Needs Secret `operator-oauth` in namespace `tailscale` (secrets/README.md).
-# Waits for sealed-secrets (wave 0) so that secret can exist.
+# Wave 1, after sealed-secrets (wave 0): waves between Applications order
+# creation only. There is deliberately no health check for Application in
+# argocd-cm, so the root app does not wait on children (the operator sits
+# Progressing until its secret exists, docs/OPERATIONS.md build step 2).
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:

@@ -17,21 +17,6 @@ configs:
     # How often git is polled (default 120s + up to 60s jitter). Public repo,
     # no webhook — 3 min is fine.
     timeout.reconciliation: 180s
-    # Health for child Applications. Argo CD dropped the built-in one in 1.8;
-    # without it the root app treats every child as healthy the moment it is
-    # created, and the sync-wave annotations in apps/ order nothing (a staging
-    # app's SealedSecrets could apply before the sealed-secrets CRD exists).
-    resource.customizations.health.argoproj.io_Application: |
-      hs = {}
-      hs.status = "Progressing"
-      hs.message = ""
-      if obj.status ~= nil and obj.status.health ~= nil then
-        hs.status = obj.status.health.status
-        if obj.status.health.message ~= nil then
-          hs.message = obj.status.health.message
-        end
-      end
-      return hs
 
 # Single admin user is enough for a one-person tailnet. Dex is an SSO
 # component; off saves ~100 MB.
