@@ -86,7 +86,6 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
-          # No runAsNonRoot: the image runs as root and writes to /app/data.
           # Generous timeouts — this VM has been shown to starve probes
           # (docs/OPERATIONS.md).
           startupProbe:

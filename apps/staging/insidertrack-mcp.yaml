@@ -6,6 +6,9 @@ kind: Application
 metadata:
   name: insidertrack-mcp-staging
   namespace: argocd
+  annotations:
+    # After sealed-secrets (0) and the Tailscale operator (1).
+    argocd.argoproj.io/sync-wave: "2"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:

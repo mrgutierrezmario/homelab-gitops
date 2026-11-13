@@ -30,12 +30,14 @@ containerd:
 
 provision:
   # Same install as bootstrap/k3s.sh (kept for a non-Lima box); change both.
+  # Pinned, not the stable channel: CI validates manifests against this
+  # Kubernetes minor (KUBE_VERSION in .github/workflows/lint.yaml); bump together.
   - mode: system
     script: |
       #!/bin/bash
       set -eux -o pipefail
       command -v k3s >/dev/null && exit 0
-      curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=stable sh -s - \
+      curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.34.13+k3s1 sh -s - \
         --write-kubeconfig-mode 644 \
         --tls-san host.docker.internal \
         --disable traefik

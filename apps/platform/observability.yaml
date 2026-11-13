@@ -3,7 +3,7 @@
 # ── NOT ENABLED ───────────────────────────────────────────────────────────
 # There is deliberately no `syncPolicy.automated` here. The 6 GiB Phase A VM
 # is already ~3.4 GB idle and ~5.4 GB while Whisper runs (DESIGN.md §5), and
-# this stack's limits total ~2.2 GB. Worse than the memory is the CPU: four
+# this stack's limits total ~2.2 GB. Worse than the memory is the CPU: six
 # vCPUs, and constant scraping is the same contention that got the Argo
 # repo-server killed by its own probes on 2026-09-23.
 #

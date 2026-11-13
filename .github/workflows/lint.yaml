@@ -69,7 +69,7 @@ jobs:
         # Schema-validate rendered charts and raw manifests. CRDs (Argo Application,
         # SealedSecret, ImageUpdater) resolve from the datree CRDs-catalog; a kind with
         # no schema fails the build rather than being skipped.
-        # k3s tracks the stable channel (bootstrap/lima.yaml); bump KUBE_VERSION with it.
+        # Matches the k3s minor pinned in bootstrap/lima.yaml and bootstrap/k3s.sh; bump together.
         env:
           KUBE_VERSION: 1.34.12
           KUBECONFORM_VERSION: v0.6.7
