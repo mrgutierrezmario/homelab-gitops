@@ -14,14 +14,18 @@
 #                                 (DESIGN.md §3); Traefik would sit idle at
 #                                 ~150 MB. The local-path storage class,
 #                                 CoreDNS and metrics-server stay.
+# k3s is pinned, not the stable channel: CI validates manifests against this
+# Kubernetes minor (KUBE_VERSION in .github/workflows/lint.yaml). Bump both together.
 set -euo pipefail
+
+K3S_VERSION=v1.34.13+k3s1
 
 if command -v k3s >/dev/null; then
   echo "k3s already installed: $(k3s --version | head -1)"
   exit 0
 fi
 
-curl -sfL https://get.k3s.io | INSTALL_K3S_CHANNEL=stable sh -s - \
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION="$K3S_VERSION" sh -s - \
   --write-kubeconfig-mode 644 \
   --tls-san host.docker.internal \
   --disable traefik

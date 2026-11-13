@@ -3,6 +3,8 @@
 - name: fetch
   image: {{ .Values.restore.rcloneImage }}
   command: ["/bin/sh", "/scripts/fetch.sh"]
+  resources:
+    {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
     - name: RCLONE_REMOTE
       value: {{ .Values.restore.rcloneRemote | quote }}
@@ -15,6 +17,8 @@
 - name: restore-db
   image: {{ .Values.postgres.image }}
   command: ["/bin/bash", "/scripts/restore-db.sh"]
+  resources:
+    {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
     - name: PGHOST
       value: {{ include "it.postgresName" . }}

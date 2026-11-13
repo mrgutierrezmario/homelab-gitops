@@ -3,6 +3,8 @@
 - name: fetch
   image: {{ .Values.restore.rcloneImage }}
   command: ["/bin/sh", "/scripts/fetch.sh"]
+  resources:
+    {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
     - { name: RCLONE_REMOTE, value: {{ .Values.restore.rcloneRemote | quote }} }
     - { name: RCLONE_CONFIG, value: /config/rclone.conf }
@@ -13,6 +15,8 @@
 - name: restore-db
   image: {{ .Values.postgres.image }}
   command: ["/bin/bash", "/scripts/restore-db.sh"]
+  resources:
+    {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
     - { name: PGHOST, value: {{ include "ln.postgresName" . }} }
     - { name: PGUSER, value: {{ .Values.postgres.user }} }
@@ -28,6 +32,8 @@
 - name: bucket
   image: {{ .Values.minio.mcImage }}
   command: ["/bin/sh", "/scripts/bucket.sh"]
+  resources:
+    {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
     - { name: MINIO_HOST, value: {{ include "ln.minioName" . }} }
     - { name: BUCKET, value: {{ .Values.minio.bucket }} }
@@ -40,6 +46,8 @@
 - name: import-audio
   image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
   command: ["/bin/sh", "/scripts/import-audio.sh"]
+  resources:
+    {{- toYaml $.Values.restore.resources | nindent 4 }}
   env:
     - { name: S3_ENDPOINT_URL, value: "http://{{ include "ln.minioName" . }}:9000" }
     - { name: S3_BUCKET, value: {{ .Values.minio.bucket }} }
