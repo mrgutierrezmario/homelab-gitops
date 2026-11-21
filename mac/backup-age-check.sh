@@ -31,6 +31,7 @@ REMOTES=(
   "stock-tracker-backup:daily:stock-tracker"
   "lecture-backup:daily:lecture-notes"
   "stock-tracker-backup:mac-config:mac-config"   # config-backup.sh
+  "mtuner-backup:daily:mtuner-license"           # jellyfin/tools/mtuner-license/backup.sh
 )
 
 log() { echo "[backup-age $(date '+%Y-%m-%d %H:%M:%S')] $*"; }
